@@ -6,15 +6,16 @@
 
 | 담당자 | 작업 브랜치 | 코드 영역 | 담당 기능 |
 | --- | --- | --- | --- |
-| 규민 | `feature/gyumin-auth` | `app/auth/` | 인증, 사용자, 프로필 |
-| 규동 | `feature/gyudong-meetings` | `app/meetings/` | 모임 CRUD, 검색 |
-| 은아 | `feature/euna-participation` | `app/participation/` | 참여, 승인, 강퇴, 출석 |
-| 다현 | `feature/dahyun-chat` | `app/chat/` | 채팅, WebSocket |
+| 규민 | `feature/gyumin-auth` | `app/auth_gyumin/` | 인증, 사용자, 프로필 |
+| 규동 | `feature/gyudong-meetings` | `app/meetings_gyudong/` | 모임 CRUD, 검색 |
+| 은아 | `feature/euna-participation` | `app/participation_euna/` | 참여, 승인, 강퇴, 출석 |
+| 다현 | `feature/dahyun-chat` | `app/chat_dahyun/` | 채팅, WebSocket |
 
-공통 코드는 
-'''
-공통 규칙
+공통 코드는 `app/shared/`에 작성합니다.
 
+## 공통 규칙
+
+```text
 로그인 성공
 → session["user_id"] 존재
 
@@ -25,5 +26,4 @@
 → users.role == "ADMIN"
 
 datetime → %Y-%m-%d (4자리 연도 - 월 - 일)
-
-
+```
