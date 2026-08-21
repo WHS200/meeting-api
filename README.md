@@ -6,18 +6,13 @@
 
 | 담당자 | 작업 브랜치 | 코드 영역 | 담당 기능 |
 | --- | --- | --- | --- |
-| 규민 | `feature/gyumin-auth` | `app/auth/` | 인증, 사용자, 프로필 |
-| 규동 | `feature/gyudong-meetings` | `app/meetings/` | 모임 CRUD, 검색 |
-| 은아 | `feature/euna-participation` | `app/participation/` | 참여, 승인, 강퇴, 출석 |
-| 다현 | `feature/dahyun-chat` | `app/chat/` | 채팅, WebSocket |
+| 규민 | `feature/gyumin-auth` | `app/auth_gyumin/` | 인증, 사용자, 프로필 |
+| 규동 | `feature/gyudong-meetings` | `app/meetings_gyudong/` | 모임 CRUD, 검색 |
+| 은아 | `feature/euna-participation` | `app/participation_euna/` | 참여, 승인, 강퇴, 출석 |
+| 다현 | `feature/dahyun-chat` | `app/chat_dahyun/` | 채팅, WebSocket |
 
 공통 코드는 `app/shared/`에 작성합니다. 완성된 기능은 각 작업 브랜치에서
 `main`을 대상으로 Pull Request를 생성하고, 다른 팀원의 리뷰를 받은 뒤 병합합니다.
-
-## 현재 코드
-
-`meeting_api_demo.py`와 `test_meeting_api.py`는 모임 CRUD 기능의 초기 실행 예제입니다.
-기능을 모듈화할 때 `app/meetings/`와 `tests/`로 나누어 이동할 예정입니다.
 
 ## 기본 작업 순서
 
