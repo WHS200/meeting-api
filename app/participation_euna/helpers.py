@@ -8,7 +8,10 @@ def get_meeting_context(meeting_id):
     user_id = session.get("user_id")
 
     if user_id is None:
-        return None, None, None, ({"message": "Login First"}, 401)
+        return None, None, None, None, (
+            {"message": "Login First"},
+            401
+        )
 
     connection = get_db_connection()
     cursor = connection.cursor(dictionary=True)
@@ -28,30 +31,28 @@ def get_meeting_context(meeting_id):
         cursor.close()
         connection.close()
 
-        return None, None, None, (
+        return None, None, None, None, (
             {"message": "Meeting Not Found"},
             404
         )
 
-    return connection, cursor, meeting, None
+    return connection, cursor, meeting, user_id, None
 
 
 # 로그인, 모임 존재 여부와 함께 모임장 권한까지 확인
 def get_host_context(meeting_id):
-    connection, cursor, meeting, error = get_meeting_context(meeting_id)
+    connection, cursor, meeting, user_id, error = get_meeting_context(meeting_id)
 
     if error:
-        return None, None, None, error
-
-    user_id = session.get("user_id")
+        return None, None, None, None, error
 
     if meeting["host_id"] != user_id:
         cursor.close()
         connection.close()
 
-        return None, None, None, (
+        return None, None, None, None, (
             {"message": "Not Authorized"},
             403
         )
 
-    return connection, cursor, meeting, None
+    return connection, cursor, meeting, user_id, None
