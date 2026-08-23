@@ -56,3 +56,34 @@ def get_host_context(meeting_id):
         )
 
     return connection, cursor, meeting, user_id, None
+
+# 승인 대기 중인 참가 신청 상태 변경
+def update_pending_status(cursor, meeting_id, target_user_id, status):
+
+    # 승인 대기 중인 참가 신청인지 확인
+    cursor.execute(
+        """
+        SELECT *
+        FROM meeting_participants
+        WHERE meeting_id = %s
+        AND user_id = %s
+        AND participation_status = 'PENDING'
+        """,
+        (meeting_id, target_user_id)
+    )
+
+    if cursor.fetchone() is None:
+        return False
+
+    # 승인 또는 거절 상태로 변경
+    cursor.execute(
+        """
+        UPDATE meeting_participants
+        SET participation_status = %s
+        WHERE meeting_id = %s
+        AND user_id = %s
+        """,
+        (status, meeting_id, target_user_id)
+    )
+
+    return True
