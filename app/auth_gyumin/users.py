@@ -1,5 +1,4 @@
-from flask import Blueprint
-
+from flask import Blueprint, session, request
 
 users_bp = Blueprint(
     "users",
@@ -7,9 +6,10 @@ users_bp = Blueprint(
     url_prefix="/api/users"
 )
 
+def check_session():
+    user_info["user_id"] = session["user_id"]
 
-@users_bp.get("/test")
-def users_test():
-    return {
-        "message": "users blueprint works"
-    }, 200
+
+@users_bp.get("/me")
+def get_me():
+    pass
