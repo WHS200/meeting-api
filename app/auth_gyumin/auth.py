@@ -5,60 +5,28 @@ from flask import Blueprint, request, session
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.shared.database import get_db_connection
+from app.shared.request_utils import get_json_body
 
-auth_bp = Blueprint(
-    "auth",
-    __name__,
-    url_prefix="/api/auth"
-)
-
-# 안전한 JSON 형식인지 확인
-def get_json_body(required_fields=None):
-    # 1. JSON 요청인지 확인
-    if not request.is_json:
-        return None, ({"message": "Content-Type should be JSON."}, 415)
-
-    # 2. JSON body 가져오기
-    data = request.get_json()
-
-    # 3. JSON object(dict)인지 확인
-    if not isinstance(data, dict):
-        return None, ({"message": "Format should be dictionary."}, 400)
-
-    # 4. 필수 필드 검사
-    if required_fields:
-        for key in required_fields:
-            value = data.get(key)
-
-            if not value:
-                return None, ({"message": f"input {key}."}, 400)
-
-            if not isinstance(value, str):
-                return None, ({"message": f"{key} must be string type."}, 400)
-            
-    return data, None
+auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
 # 회원가입 
 @auth_bp.post("/signup")
 def signup():
     # 올바른 형식이면 user_info = data, error = None
     # 아니면 user_info = None, error = 에러메시지, 에러코드
-    user_info, error = get_json_body(
-        [
-            "login_id",
-            "password",
-            "nickname",
-            "email",
-            "birth_date",
-            "region",
-            "gender"
-        ]
-    )
+    user_info, error = get_json_body([
+        "login_id",
+        "password",
+        "nickname",
+        "email",
+        "birth_date",
+        "region",
+        "gender"
+    ])
 
     if error:
         return error
-    
-    
+
     # 입력받은 값 변수로 저장
     login_id = user_info.get("login_id")
     password = user_info.get("password")
@@ -88,7 +56,6 @@ def signup():
     if login_id.startswith("deleted_user_"):
         return {"message": "This login ID prefix is reserved."}, 400
 
-
     # DB 연결
     connection = get_db_connection()
     cursor = connection.cursor(dictionary=True)
@@ -111,7 +78,6 @@ def signup():
         existing_nickname = cursor.fetchone()
         if existing_nickname:
             return {"message": "Existing nickname."}, 409
-
 
         ## DB에 Commit
         # 비밀번호 hash로 저장
@@ -138,18 +104,12 @@ def signup():
         cursor.close()
         connection.close()
 
-
-    return {"message": "registered."}, 201    
+    return {"message": "registered."}, 201
 
 # 로그인
 @auth_bp.post("/login")
 def login():
-    user_info, error = get_json_body(
-        [
-            "login_id",
-            "password"
-        ]
-    )
+    user_info, error = get_json_body(["login_id", "password"])
 
     if error:
         return error
