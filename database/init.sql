@@ -257,3 +257,11 @@ CREATE TABLE chat_messages (
         created_at
     )
 );
+
+INSERT IGNORE INTO sports (sport_name)
+VALUES
+    ('탁구'),
+    ('배드민턴'),
+    ('테니스'),
+    ('풋살'),
+    ('농구');

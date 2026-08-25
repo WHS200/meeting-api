@@ -11,11 +11,51 @@ services:
       MYSQL_PASSWORD: meeting_password
 
     ports:
-      - "3306:3306"
+      - "3307:3306"
 
     volumes:
       - mysql_data:/var/lib/mysql
       - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
 
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-uroot",
+          "-proot"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+
+  app:
+    build: .
+    container_name: meeting-api
+    restart: unless-stopped
+
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+    environment:
+      DB_HOST: mysql
+      DB_USER: meeting_user
+      DB_PASSWORD: meeting_password
+      DB_NAME: meeting_db
+      SECRET_KEY: meeting-dev-secret-key
+
+    ports:
+      - "5000:5000"
+
+    volumes:
+      - uploads_data:/app/uploads
+
+
 volumes:
   mysql_data:
+  uploads_data:
