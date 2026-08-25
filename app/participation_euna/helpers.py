@@ -70,14 +70,26 @@ def update_pending_status(cursor, meeting_id, target_user_id, status):
         return False
 
     # 승인 또는 거절 상태로 변경
-    cursor.execute(
-        """
-        UPDATE meeting_participants
-        SET participation_status = %s
-        WHERE meeting_id = %s
-        AND user_id = %s
-        """,
-        (status, meeting_id, target_user_id)
-    )
+    if status == "APPROVED":
+        cursor.execute(
+            """
+            UPDATE meeting_participants
+            SET participation_status = %s,
+                approved_at = NOW()
+            WHERE meeting_id = %s
+            AND user_id = %s
+            """,
+            (status, meeting_id, target_user_id)
+        )
+    else:
+        cursor.execute(
+            """
+            UPDATE meeting_participants
+            SET participation_status = %s
+            WHERE meeting_id = %s
+            AND user_id = %s
+            """,
+            (status, meeting_id, target_user_id)
+        )
 
     return True

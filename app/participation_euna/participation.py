@@ -65,18 +65,26 @@ def join_meeting(meeting_id):
     # 승인 방식에 따라 참여 상태 결정
     if meeting["approval_type"] == "INSTANT":
         participation_status = "APPROVED"
+
+        cursor.execute(
+            """
+            INSERT INTO meeting_participants
+                (meeting_id, user_id, participation_status, approved_at)
+            VALUES (%s, %s, %s, NOW())
+            """,
+            (meeting_id, user_id, participation_status)
+        )
     else:
         participation_status = "PENDING"
 
-    # 참여 정보 저장
-    cursor.execute(
-        """
-        INSERT INTO meeting_participants
+        cursor.execute(
+            """
+            INSERT INTO meeting_participants
+                (meeting_id, user_id, participation_status)
+            VALUES (%s, %s, %s)
+            """,
             (meeting_id, user_id, participation_status)
-        VALUES (%s, %s, %s)
-        """,
-        (meeting_id, user_id, participation_status)
-    )
+        )
 
     connection.commit()
 
