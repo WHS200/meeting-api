@@ -183,6 +183,25 @@ def approve_participant(meeting_id, target_user_id):
 
     if error:
         return error
+    
+    # 현재 승인된 참여자 수 확인
+    cursor.execute(
+        """
+        SELECT COUNT(*) AS count
+        FROM meeting_participants
+        WHERE meeting_id = %s
+        AND participation_status = 'APPROVED'
+        """,
+        (meeting_id,)
+    )
+
+    participant_count = cursor.fetchone()["count"]
+
+    # 정원 초과 여부 확인
+    if participant_count >= meeting["max_participants"]:
+        cursor.close()
+        connection.close()
+        return {"message": "Meeting Full"}, 409
 
     # 승인 대기 중인 참가 신청을 APPROVED 상태로 변경
     if not update_pending_status(
@@ -341,7 +360,13 @@ def update_attendance(meeting_id, target_user_id):
         return {"message": "Participant Not Found"}, 404
 
     # 요청으로 받은 출석 상태 확인
-    data = request.get_json()
+    data = request.get_json(silent=True)
+
+    if not isinstance(data, dict):
+        cursor.close()
+        connection.close()
+        return {"message": "Invalid Request"}, 400
+
     attendance_status = data.get("attendance_status")
 
     if attendance_status not in ["ATTENDED", "NO_SHOW"]:
