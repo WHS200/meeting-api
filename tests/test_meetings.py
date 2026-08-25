@@ -75,6 +75,29 @@ class MeetingsApiTest(unittest.TestCase):
         response = self.client.post("/api/meetings", json={})
         self.assertEqual(response.status_code, 401)
 
+    def test_create_validates_meeting_time(self):
+        with self.client.session_transaction() as session:
+            session["user_id"] = 1
+
+        response = self.client.post(
+            "/api/meetings",
+            json={
+                "title": "한강 러닝",
+                "description": "5km 러닝",
+                "sport_id": 1,
+                "meeting_date": "2026-08-30",
+                "meeting_time": "25:30",
+                "location": "여의도",
+                "max_participants": 10,
+                "approval_type": "APPROVAL",
+            },
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.get_json()["message"],
+            "meeting_time should be HH:MM.",
+        )
+
     def test_create_validates_integer_fields(self):
         with self.client.session_transaction() as session:
             session["user_id"] = 1
@@ -86,6 +109,7 @@ class MeetingsApiTest(unittest.TestCase):
                 "description": "5km 러닝",
                 "sport_id": "1",
                 "meeting_date": "2026-08-30",
+                "meeting_time": "19:30",
                 "location": "여의도",
                 "max_participants": 10,
                 "approval_type": "APPROVAL",

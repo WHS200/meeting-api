@@ -5,6 +5,7 @@ CREATE TABLE meetings (
     title VARCHAR(100) NOT NULL,
     description TEXT NOT NULL,
     meeting_date DATE NOT NULL,
+    meeting_time TIME NOT NULL,
     location VARCHAR(255) NOT NULL,
     max_participants INT NOT NULL,
     approval_type ENUM('INSTANT', 'APPROVAL') NOT NULL DEFAULT 'APPROVAL',
@@ -17,7 +18,7 @@ CREATE TABLE meetings (
         FOREIGN KEY (host_id) REFERENCES users(user_id),
     CONSTRAINT fk_meetings_sport
         FOREIGN KEY (sport_id) REFERENCES sports(sport_id),
-    INDEX idx_meetings_date (meeting_date),
+    INDEX idx_meetings_datetime (meeting_date, meeting_time),
     INDEX idx_meetings_sport_status (sport_id, status),
     INDEX idx_meetings_host (host_id)
 );

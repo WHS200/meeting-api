@@ -15,6 +15,7 @@ REQUIRED_FIELDS = (
     "description",
     "sport_id",
     "meeting_date",
+    "meeting_time",
     "location",
     "max_participants",
     "approval_type",
@@ -37,6 +38,7 @@ def _meeting_select_sql():
             m.host_id,
             u.nickname AS host_name,
             m.meeting_date,
+            m.meeting_time,
             m.location,
             m.max_participants,
             m.approval_type,
@@ -87,6 +89,11 @@ def _validate_meeting(data, require_status=False):
     except (TypeError, ValueError):
         return {"message": "meeting_date should be YYYY-MM-DD."}, 400
 
+    try:
+        datetime.strptime(data["meeting_time"], "%H:%M")
+    except (TypeError, ValueError):
+        return {"message": "meeting_time should be HH:MM."}, 400
+
     if data["approval_type"] not in APPROVAL_TYPES:
         return {"message": "approval_type must be INSTANT or APPROVAL."}, 400
     if require_status and data["status"] not in MEETING_STATUSES:
@@ -132,7 +139,7 @@ def get_meetings():
     sql = _meeting_select_sql()
     if conditions:
         sql += " WHERE " + " AND ".join(conditions)
-    sql += " ORDER BY m.meeting_date ASC, m.meeting_id ASC"
+    sql += " ORDER BY m.meeting_date ASC, m.meeting_time ASC, m.meeting_id ASC"
 
     connection = get_db_connection()
     cursor = connection.cursor(dictionary=True)
@@ -183,9 +190,9 @@ def create_meeting():
         cursor.execute(
             """
             INSERT INTO meetings (
-                host_id, sport_id, title, description, meeting_date,
+                host_id, sport_id, title, description, meeting_date, meeting_time,
                 location, max_participants, approval_type, status
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'RECRUITING')
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'RECRUITING')
             """,
             (
                 session["user_id"],
@@ -193,6 +200,7 @@ def create_meeting():
                 data["title"].strip(),
                 data["description"].strip(),
                 data["meeting_date"],
+                data["meeting_time"],
                 data["location"].strip(),
                 data["max_participants"],
                 data["approval_type"],
@@ -252,6 +260,7 @@ def update_meeting(meeting_id):
                 title = %s,
                 description = %s,
                 meeting_date = %s,
+                meeting_time = %s,
                 location = %s,
                 max_participants = %s,
                 approval_type = %s,
@@ -263,6 +272,7 @@ def update_meeting(meeting_id):
                 data["title"].strip(),
                 data["description"].strip(),
                 data["meeting_date"],
+                data["meeting_time"],
                 data["location"].strip(),
                 data["max_participants"],
                 data["approval_type"],
@@ -312,7 +322,8 @@ def get_my_meetings():
     try:
         cursor.execute(
             _meeting_select_sql()
-            + " WHERE m.host_id = %s ORDER BY m.meeting_date ASC, m.meeting_id ASC",
+            + " WHERE m.host_id = %s"
+            + " ORDER BY m.meeting_date ASC, m.meeting_time ASC, m.meeting_id ASC",
             (session["user_id"],),
         )
         meetings = cursor.fetchall()
