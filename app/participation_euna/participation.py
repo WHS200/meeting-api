@@ -1,5 +1,6 @@
 from flask import Blueprint, request
 
+from app.shared.decorators import login_required
 from app.participation_euna.helpers import (
     get_meeting_context,
     get_host_context,
@@ -15,9 +16,10 @@ participation_bp = Blueprint(
 
 # 모임 참여 신청
 @participation_bp.post("/<int:meeting_id>/participants")
+@login_required
 def join_meeting(meeting_id):
 
-    # 로그인 여부와 모임 존재 여부 확인
+    # 모임 존재 여부 확인
     connection, cursor, meeting, user_id, error = get_meeting_context(meeting_id)
 
     if error:
@@ -88,9 +90,10 @@ def join_meeting(meeting_id):
 
 # 내 참여 신청 취소
 @participation_bp.delete("/<int:meeting_id>/participants/me")
+@login_required
 def cancel_participation(meeting_id):
 
-    # 로그인 여부와 모임 존재 여부 확인
+    # 모임 존재 여부 확인
     connection, cursor, meeting, user_id, error = get_meeting_context(meeting_id)
 
     if error:
@@ -135,9 +138,10 @@ def cancel_participation(meeting_id):
 
 # 참가 신청 목록 조회
 @participation_bp.get("/<int:meeting_id>/participants")
+@login_required
 def get_pending_participants(meeting_id):
 
-    # 로그인, 모임 존재 여부와 모임장 권한 확인
+    # 모임 존재 여부와 모임장 권한 확인
     connection, cursor, meeting, user_id, error = get_host_context(meeting_id)
 
     if error:
@@ -171,9 +175,10 @@ def get_pending_participants(meeting_id):
 @participation_bp.post(
     "/<int:meeting_id>/participants/<int:target_user_id>/approve"
 )
+@login_required
 def approve_participant(meeting_id, target_user_id):
 
-    # 로그인, 모임 존재 여부와 모임장 권한 확인
+    # 모임 존재 여부와 모임장 권한 확인
     connection, cursor, meeting, user_id, error = get_host_context(meeting_id)
 
     if error:
@@ -198,9 +203,10 @@ def approve_participant(meeting_id, target_user_id):
 @participation_bp.post(
     "/<int:meeting_id>/participants/<int:target_user_id>/reject"
 )
+@login_required
 def reject_participant(meeting_id, target_user_id):
 
-    # 로그인, 모임 존재 여부와 모임장 권한 확인
+    # 모임 존재 여부와 모임장 권한 확인
     connection, cursor, meeting, user_id, error = get_host_context(meeting_id)
 
     if error:
@@ -223,9 +229,10 @@ def reject_participant(meeting_id, target_user_id):
 
 # 현재 참여자 목록 조회
 @participation_bp.get("/<int:meeting_id>/participants/approved")
+@login_required
 def get_approved_participants(meeting_id):
 
-    # 로그인 여부와 모임 존재 여부 확인
+    # 모임 존재 여부 확인
     connection, cursor, meeting, user_id, error = get_meeting_context(meeting_id)
 
     if error:
@@ -255,9 +262,10 @@ def get_approved_participants(meeting_id):
 @participation_bp.delete(
     "/<int:meeting_id>/participants/<int:target_user_id>"
 )
+@login_required
 def kick_participant(meeting_id, target_user_id):
 
-    # 로그인, 모임 존재 여부와 모임장 권한 확인
+    # 모임 존재 여부와 모임장 권한 확인
     connection, cursor, meeting, user_id, error = get_host_context(meeting_id)
 
     if error:
@@ -304,9 +312,10 @@ def kick_participant(meeting_id, target_user_id):
 @participation_bp.post(
     "/<int:meeting_id>/participants/<int:target_user_id>/attendance"
 )
+@login_required
 def update_attendance(meeting_id, target_user_id):
 
-    # 로그인, 모임 존재 여부와 모임장 권한 확인
+    # 모임 존재 여부와 모임장 권한 확인
     connection, cursor, meeting, user_id, error = get_host_context(meeting_id)
 
     if error:
