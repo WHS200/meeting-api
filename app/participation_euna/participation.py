@@ -2,8 +2,10 @@ from flask import Blueprint, request
 
 from app.shared.decorators import login_required
 from app.participation_euna.helpers import (
+    add_chat_room_member,
     get_meeting_context,
     get_host_context,
+    remove_chat_room_member,
     update_pending_status
 )
 
@@ -20,12 +22,21 @@ participation_bp = Blueprint(
 def join_meeting(meeting_id):
 
     # 모임 존재 여부 확인
-    connection, cursor, meeting, user_id, error = get_meeting_context(meeting_id)
+    connection, cursor, meeting, user_id, error = get_meeting_context(
+        meeting_id,
+        for_update=True
+    )
 
     if error:
         return error
 
     try:
+        if meeting["status"] != "RECRUITING":
+            return {"message": "Meeting is not recruiting."}, 409
+
+        if meeting["host_id"] == user_id:
+            return {"message": "Host cannot participate in own meeting."}, 409
+
         # 이미 참여 신청한 사용자인지 확인
         cursor.execute(
             """
@@ -56,7 +67,7 @@ def join_meeting(meeting_id):
         participant_count = cursor.fetchone()["count"]
 
         # 정원 초과 여부 확인
-        if participant_count >= meeting["max_participants"]:
+        if participant_count + 1 >= meeting["max_participants"]:
             return {"message": "Meeting Full"}, 409
 
         # 승인 방식에 따라 참여 상태 결정
@@ -71,6 +82,7 @@ def join_meeting(meeting_id):
                 """,
                 (meeting_id, user_id, participation_status)
             )
+            add_chat_room_member(cursor, meeting_id, user_id)
         else:
             participation_status = "PENDING"
 
@@ -140,6 +152,8 @@ def cancel_participation(meeting_id):
             (meeting_id, user_id)
         )
 
+        remove_chat_room_member(cursor, meeting_id, user_id)
+
         connection.commit()
 
         return {"message": "Participation Canceled"}, 200
@@ -197,12 +211,18 @@ def get_pending_participants(meeting_id):
 def approve_participant(meeting_id, target_user_id):
 
     # 모임 존재 여부와 모임장 권한 확인
-    connection, cursor, meeting, user_id, error = get_host_context(meeting_id)
+    connection, cursor, meeting, user_id, error = get_host_context(
+        meeting_id,
+        for_update=True
+    )
 
     if error:
         return error
 
     try:
+        if meeting["status"] != "RECRUITING":
+            return {"message": "Meeting is not recruiting."}, 409
+
         # 현재 승인된 참여자 수 확인
         cursor.execute(
             """
@@ -217,7 +237,7 @@ def approve_participant(meeting_id, target_user_id):
         participant_count = cursor.fetchone()["count"]
 
         # 정원 초과 여부 확인
-        if participant_count >= meeting["max_participants"]:
+        if participant_count + 1 >= meeting["max_participants"]:
             return {"message": "Meeting Full"}, 409
 
         # 승인 대기 중인 참가 신청을 APPROVED 상태로 변경
@@ -225,6 +245,8 @@ def approve_participant(meeting_id, target_user_id):
             cursor, meeting_id, target_user_id, "APPROVED"
         ):
             return {"message": "Pending Participation Not Found"}, 404
+
+        add_chat_room_member(cursor, meeting_id, target_user_id)
 
         connection.commit()
 
@@ -344,6 +366,8 @@ def kick_participant(meeting_id, target_user_id):
             """,
             (meeting_id, target_user_id)
         )
+
+        remove_chat_room_member(cursor, meeting_id, target_user_id)
 
         connection.commit()
 

@@ -10,6 +10,7 @@ meetings_bp = Blueprint("meetings", __name__, url_prefix="/api/meetings")
 
 MEETING_STATUSES = {"RECRUITING", "CLOSED", "COMPLETED", "CANCELED"}
 APPROVAL_TYPES = {"INSTANT", "APPROVAL"}
+MEETING_CHAT_ROOM_TYPE = "MEETING"
 REQUIRED_FIELDS = (
     "title",
     "description",
@@ -224,8 +225,26 @@ def create_meeting():
                 data["approval_type"],
             ),
         )
-        connection.commit()
         meeting_id = cursor.lastrowid
+
+        cursor.execute(
+            """
+            INSERT INTO chat_rooms (room_type, meeting_id)
+            VALUES (%s, %s)
+            """,
+            (MEETING_CHAT_ROOM_TYPE, meeting_id),
+        )
+        chat_room_id = cursor.lastrowid
+
+        cursor.execute(
+            """
+            INSERT INTO chat_room_members (chat_room_id, user_id)
+            VALUES (%s, %s)
+            """,
+            (chat_room_id, session["user_id"]),
+        )
+
+        connection.commit()
     except Exception:
         connection.rollback()
         raise
@@ -320,7 +339,6 @@ def delete_meeting(meeting_id):
         if editor["host_id"] != session["user_id"] and editor["role"] != "ADMIN":
             return {"message": "Not Authorized"}, 403
 
-        cursor.execute("DELETE FROM meeting_participants WHERE meeting_id = %s", (meeting_id,))
         cursor.execute("DELETE FROM meetings WHERE meeting_id = %s", (meeting_id,))
         connection.commit()
     except Exception:
