@@ -1,8 +1,21 @@
+from datetime import datetime
+
 from flask import session
 from flask_socketio import disconnect as disconnect_client
 from flask_socketio import emit, join_room, leave_room
 
 from app.shared.database import get_db_connection
+
+
+def _serialize_message(message):
+    if message is None:
+        return None
+
+    created_at = message.get("created_at")
+    if isinstance(created_at, datetime):
+        message["created_at"] = created_at.isoformat(timespec="seconds")
+
+    return message
 
 
 def _get_chat_room_id(data):
@@ -152,11 +165,11 @@ def register_socket_events(socketio):
 
             cursor.execute(
                 """
-                INSERT INTO messages (
+                INSERT INTO chat_messages (
                     chat_room_id,
                     sender_id,
                     content,
-                    sent_at
+                    created_at
                 )
                 VALUES (%s, %s, %s, NOW())
                 """,
@@ -171,17 +184,17 @@ def register_socket_events(socketio):
                     msg.chat_room_id,
                     msg.sender_id,
                     msg.content,
-                    msg.sent_at,
+                    msg.created_at,
                     u.nickname AS sender_nickname,
                     u.profile_image AS sender_profile_image
-                FROM messages AS msg
+                FROM chat_messages AS msg
                 JOIN users AS u
                     ON msg.sender_id = u.user_id
                 WHERE msg.message_id = %s
                 """,
                 (message_id,)
             )
-            message = cursor.fetchone()
+            message = _serialize_message(cursor.fetchone())
 
             connection.commit()
         except Exception:

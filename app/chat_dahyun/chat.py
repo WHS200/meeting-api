@@ -75,14 +75,14 @@ def get_chat_messages(chat_room_id):
                 msg.chat_room_id,
                 msg.sender_id,
                 msg.content,
-                msg.sent_at,
+                msg.created_at,
                 u.nickname AS sender_nickname,
                 u.profile_image AS sender_profile_image
-            FROM messages AS msg
+            FROM chat_messages AS msg
             JOIN users AS u
                 ON msg.sender_id = u.user_id
             WHERE msg.chat_room_id = %s
-            ORDER BY msg.sent_at ASC, msg.message_id ASC
+            ORDER BY msg.created_at ASC, msg.message_id ASC
             """,
             (chat_room_id,)
         )

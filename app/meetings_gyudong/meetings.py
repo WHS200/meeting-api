@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, time, timedelta
 
 from flask import Blueprint, request, session
 
@@ -49,6 +49,24 @@ def _meeting_select_sql():
         JOIN sports AS s ON s.sport_id = m.sport_id
         JOIN users AS u ON u.user_id = m.host_id
     """
+
+
+def _serialize_meeting(meeting):
+    if meeting is None:
+        return None
+
+    meeting_time = meeting.get("meeting_time")
+
+    if isinstance(meeting_time, timedelta):
+        total_minutes = int(meeting_time.total_seconds() // 60)
+        hours, minutes = divmod(total_minutes, 60)
+        meeting["meeting_time"] = f"{hours:02d}:{minutes:02d}"
+    elif isinstance(meeting_time, time):
+        meeting["meeting_time"] = meeting_time.strftime("%H:%M")
+    elif isinstance(meeting_time, str):
+        meeting["meeting_time"] = meeting_time[:5]
+
+    return meeting
 
 
 def _get_json_body():
@@ -145,7 +163,7 @@ def get_meetings():
     cursor = connection.cursor(dictionary=True)
     try:
         cursor.execute(sql, tuple(params))
-        meetings = cursor.fetchall()
+        meetings = [_serialize_meeting(meeting) for meeting in cursor.fetchall()]
     finally:
         _close(connection, cursor)
 
@@ -161,7 +179,7 @@ def get_meeting(meeting_id):
             _meeting_select_sql() + " WHERE m.meeting_id = %s",
             (meeting_id,),
         )
-        meeting = cursor.fetchone()
+        meeting = _serialize_meeting(cursor.fetchone())
     finally:
         _close(connection, cursor)
 
@@ -326,7 +344,7 @@ def get_my_meetings():
             + " ORDER BY m.meeting_date ASC, m.meeting_time ASC, m.meeting_id ASC",
             (session["user_id"],),
         )
-        meetings = cursor.fetchall()
+        meetings = [_serialize_meeting(meeting) for meeting in cursor.fetchall()]
     finally:
         _close(connection, cursor)
 

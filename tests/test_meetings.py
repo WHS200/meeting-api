@@ -1,4 +1,5 @@
 import unittest
+from datetime import timedelta
 from unittest.mock import patch
 
 from flask import Flask
@@ -53,7 +54,11 @@ class MeetingsApiTest(unittest.TestCase):
         self.client = app.test_client()
 
     def test_list_meetings(self):
-        cursor = FakeCursor(many=[{"meeting_id": 1, "title": "한강 러닝"}])
+        cursor = FakeCursor(many=[{
+            "meeting_id": 1,
+            "title": "한강 러닝",
+            "meeting_time": timedelta(hours=19, minutes=30),
+        }])
         connection = FakeConnection(cursor)
         with patch(
             "app.meetings_gyudong.meetings.get_db_connection",
@@ -63,6 +68,10 @@ class MeetingsApiTest(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json()["total"], 1)
+        self.assertEqual(
+            response.get_json()["meetings"][0]["meeting_time"],
+            "19:30",
+        )
         sql, params = cursor.executed[0]
         self.assertIn("m.title LIKE %s", sql)
         self.assertEqual(params, ("%한강%", "%한강%", "RECRUITING"))
