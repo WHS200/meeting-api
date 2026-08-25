@@ -7,12 +7,6 @@ from app.shared.database import get_db_connection
 def get_meeting_context(meeting_id):
     user_id = session.get("user_id")
 
-    if user_id is None:
-        return None, None, None, None, (
-            {"message": "Login First"},
-            401
-        )
-
     connection = get_db_connection()
     cursor = connection.cursor(dictionary=True)
 
