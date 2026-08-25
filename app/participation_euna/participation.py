@@ -1,5 +1,6 @@
 from flask import Blueprint, request
 
+from app.chat_dahyun.socket_events import remove_user_from_chat_room
 from app.shared.decorators import login_required
 from app.participation_euna.helpers import (
     add_chat_room_member,
@@ -152,11 +153,9 @@ def cancel_participation(meeting_id):
             (meeting_id, user_id)
         )
 
-        remove_chat_room_member(cursor, meeting_id, user_id)
+        chat_room_id = remove_chat_room_member(cursor, meeting_id, user_id)
 
         connection.commit()
-
-        return {"message": "Participation Canceled"}, 200
 
     except Exception:
         connection.rollback()
@@ -165,6 +164,10 @@ def cancel_participation(meeting_id):
     finally:
         cursor.close()
         connection.close()
+
+    remove_user_from_chat_room(user_id, chat_room_id)
+
+    return {"message": "Participation Canceled"}, 200
 
 # 참가 신청 목록 조회
 @participation_bp.get("/<int:meeting_id>/participants")
@@ -367,11 +370,13 @@ def kick_participant(meeting_id, target_user_id):
             (meeting_id, target_user_id)
         )
 
-        remove_chat_room_member(cursor, meeting_id, target_user_id)
+        chat_room_id = remove_chat_room_member(
+            cursor,
+            meeting_id,
+            target_user_id
+        )
 
         connection.commit()
-
-        return {"message": "Participant Kicked"}, 200
 
     except Exception:
         connection.rollback()
@@ -380,6 +385,10 @@ def kick_participant(meeting_id, target_user_id):
     finally:
         cursor.close()
         connection.close()
+
+    remove_user_from_chat_room(target_user_id, chat_room_id)
+
+    return {"message": "Participant Kicked"}, 200
 
 # 출석 / No-Show 처리
 @participation_bp.post(

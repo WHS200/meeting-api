@@ -65,7 +65,7 @@ def get_host_context(meeting_id, for_update=False):
     return connection, cursor, meeting, user_id, None
 
 
-def add_chat_room_member(cursor, meeting_id, user_id):
+def get_meeting_chat_room_id(cursor, meeting_id):
     cursor.execute(
         """
         SELECT chat_room_id
@@ -81,28 +81,36 @@ def add_chat_room_member(cursor, meeting_id, user_id):
     if chat_room is None:
         raise RuntimeError("Meeting chat room not found.")
 
+    return chat_room["chat_room_id"]
+
+
+def add_chat_room_member(cursor, meeting_id, user_id):
+    chat_room_id = get_meeting_chat_room_id(cursor, meeting_id)
+
     cursor.execute(
         """
         INSERT IGNORE INTO chat_room_members (chat_room_id, user_id)
         VALUES (%s, %s)
         """,
-        (chat_room["chat_room_id"], user_id)
+        (chat_room_id, user_id)
     )
+
+    return chat_room_id
 
 
 def remove_chat_room_member(cursor, meeting_id, user_id):
+    chat_room_id = get_meeting_chat_room_id(cursor, meeting_id)
+
     cursor.execute(
         """
         DELETE FROM chat_room_members
         WHERE user_id = %s
-        AND chat_room_id IN (
-            SELECT chat_room_id
-            FROM chat_rooms
-            WHERE meeting_id = %s
-        )
+        AND chat_room_id = %s
         """,
-        (user_id, meeting_id)
+        (user_id, chat_room_id)
     )
+
+    return chat_room_id
 
 # 승인 대기 중인 참가 신청 상태 변경
 def update_pending_status(cursor, meeting_id, target_user_id, status):

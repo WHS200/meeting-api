@@ -6,7 +6,11 @@ from flask import Flask
 from flask_socketio import SocketIO
 
 from app.chat_dahyun.chat import chat_bp
-from app.chat_dahyun.socket_events import _serialize_message, register_socket_events
+from app.chat_dahyun.socket_events import (
+    _serialize_message,
+    register_socket_events,
+    remove_user_from_chat_room,
+)
 
 
 class FakeCursor:
@@ -136,6 +140,62 @@ class ChatSocketTest(unittest.TestCase):
         self.assertIn("msg.created_at", select_sql)
         self.assertNotIn("sent_at", insert_sql + select_sql)
         self.assertTrue(connection.committed)
+        client.disconnect()
+
+    def test_remove_user_from_chat_room_evicts_all_active_sockets(self):
+        app = Flask(__name__)
+        app.config.update(TESTING=True, SECRET_KEY="test-secret")
+        socketio = SocketIO(app, async_mode="threading")
+        register_socket_events(socketio)
+
+        def connect(user_id):
+            flask_client = app.test_client()
+            with flask_client.session_transaction() as session:
+                session["user_id"] = user_id
+            return socketio.test_client(
+                app,
+                flask_test_client=flask_client,
+            )
+
+        user_socket_one = connect(2)
+        user_socket_two = connect(2)
+        other_user_socket = connect(3)
+
+        try:
+            with patch(
+                "app.chat_dahyun.socket_events._check_membership",
+                return_value=True,
+            ):
+                user_socket_one.emit("join_room", {"chat_room_id": 20})
+                user_socket_two.emit("join_room", {"chat_room_id": 20})
+                other_user_socket.emit("join_room", {"chat_room_id": 20})
+
+            user_socket_one.get_received()
+            user_socket_two.get_received()
+            other_user_socket.get_received()
+
+            removed_socket_count = remove_user_from_chat_room(2, 20)
+            socketio.emit("probe", {"chat_room_id": 20}, to="20")
+
+            self.assertEqual(removed_socket_count, 2)
+            self.assertNotIn(
+                "probe",
+                [event["name"] for event in user_socket_one.get_received()],
+            )
+            self.assertNotIn(
+                "probe",
+                [event["name"] for event in user_socket_two.get_received()],
+            )
+            self.assertIn(
+                "probe",
+                [event["name"] for event in other_user_socket.get_received()],
+            )
+        finally:
+            user_socket_one.disconnect()
+            user_socket_two.disconnect()
+            other_user_socket.disconnect()
+
+        self.assertEqual(remove_user_from_chat_room(2, 20), 0)
 
 
 if __name__ == "__main__":

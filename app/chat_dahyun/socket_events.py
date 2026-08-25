@@ -1,10 +1,56 @@
+from collections import defaultdict
 from datetime import datetime
+from threading import Lock
 
-from flask import session
+from flask import request, session
 from flask_socketio import disconnect as disconnect_client
 from flask_socketio import emit, join_room, leave_room
 
 from app.shared.database import get_db_connection
+
+
+_socketio = None
+_user_sids = defaultdict(set)
+_sid_users = {}
+_sid_lock = Lock()
+
+
+def _track_user_socket(user_id, sid):
+    with _sid_lock:
+        _user_sids[user_id].add(sid)
+        _sid_users[sid] = user_id
+
+
+def _untrack_user_socket(sid):
+    with _sid_lock:
+        user_id = _sid_users.pop(sid, None)
+        if user_id is None:
+            return
+
+        user_sids = _user_sids.get(user_id)
+        if user_sids is None:
+            return
+
+        user_sids.discard(sid)
+        if not user_sids:
+            _user_sids.pop(user_id, None)
+
+
+def remove_user_from_chat_room(user_id, chat_room_id):
+    if _socketio is None:
+        return 0
+
+    with _sid_lock:
+        user_sids = tuple(_user_sids.get(user_id, ()))
+
+    for sid in user_sids:
+        _socketio.server.leave_room(
+            sid,
+            str(chat_room_id),
+            namespace="/"
+        )
+
+    return len(user_sids)
 
 
 def _serialize_message(message):
@@ -63,6 +109,9 @@ def _check_membership(chat_room_id, user_id):
 
 
 def register_socket_events(socketio):
+    global _socketio
+    _socketio = socketio
+
     @socketio.on("connect")
     def handle_connect():
         user_id = session.get("user_id")
@@ -70,6 +119,7 @@ def register_socket_events(socketio):
         if user_id is None:
             return False
 
+        _track_user_socket(user_id, request.sid)
         emit("connected", {"user_id": user_id})
         return None
 
@@ -212,5 +262,6 @@ def register_socket_events(socketio):
         )
 
     @socketio.on("disconnect")
-    def handle_disconnect():
+    def handle_disconnect(reason=None):
+        _untrack_user_socket(request.sid)
         return None

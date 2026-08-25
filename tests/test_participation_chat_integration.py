@@ -142,36 +142,56 @@ class ParticipationChatIntegrationTest(unittest.TestCase):
         self.assertTrue(connection.committed)
 
     def test_cancel_updates_status_and_removes_chat_member(self):
-        response, connection, cursor = self._request(
-            "DELETE",
-            "/api/meetings/10/participants/me",
-            user_id=2,
-            one_values=[
-                self._meeting(),
-                {"participation_status": "APPROVED"},
-            ],
-        )
+        def assert_committed_before_socket_removal(user_id, chat_room_id):
+            self.assertTrue(self.last_connection.committed)
+            self.assertEqual((user_id, chat_room_id), (2, 20))
+
+        with patch(
+            "app.participation_euna.participation.remove_user_from_chat_room",
+            side_effect=assert_committed_before_socket_removal,
+        ) as remove_socket_member:
+            response, connection, cursor = self._request(
+                "DELETE",
+                "/api/meetings/10/participants/me",
+                user_id=2,
+                one_values=[
+                    self._meeting(),
+                    {"participation_status": "APPROVED"},
+                    {"chat_room_id": 20},
+                ],
+            )
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("participation_status = 'CANCELED'", self._sql(cursor))
         self.assertIn("DELETE FROM chat_room_members", self._sql(cursor))
         self.assertTrue(connection.committed)
+        remove_socket_member.assert_called_once_with(2, 20)
 
     def test_kick_updates_status_and_removes_chat_member(self):
-        response, connection, cursor = self._request(
-            "DELETE",
-            "/api/meetings/10/participants/2",
-            user_id=1,
-            one_values=[
-                self._meeting(),
-                {"participation_status": "APPROVED"},
-            ],
-        )
+        def assert_committed_before_socket_removal(user_id, chat_room_id):
+            self.assertTrue(self.last_connection.committed)
+            self.assertEqual((user_id, chat_room_id), (2, 20))
+
+        with patch(
+            "app.participation_euna.participation.remove_user_from_chat_room",
+            side_effect=assert_committed_before_socket_removal,
+        ) as remove_socket_member:
+            response, connection, cursor = self._request(
+                "DELETE",
+                "/api/meetings/10/participants/2",
+                user_id=1,
+                one_values=[
+                    self._meeting(),
+                    {"participation_status": "APPROVED"},
+                    {"chat_room_id": 20},
+                ],
+            )
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("participation_status = 'KICKED'", self._sql(cursor))
         self.assertIn("DELETE FROM chat_room_members", self._sql(cursor))
         self.assertTrue(connection.committed)
+        remove_socket_member.assert_called_once_with(2, 20)
 
     def test_non_recruiting_meetings_reject_join(self):
         for status in ("CLOSED", "COMPLETED", "CANCELED"):
@@ -300,6 +320,7 @@ class ParticipationChatIntegrationTest(unittest.TestCase):
                 one_values=[
                     self._meeting(),
                     {"participation_status": "APPROVED"},
+                    {"chat_room_id": 20},
                 ],
                 fail_on="DELETE FROM chat_room_members",
             )
