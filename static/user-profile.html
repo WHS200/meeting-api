@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>상대 프로필 | PLAYUPP</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="profile.html">PLAY<span>UPP</span></a>
+    <nav class="nav"><a href="profile.html">내 프로필</a><a class="active" href="#">상대 프로필</a></nav>
+  </div>
+</header>
+<main class="page">
+  <div class="page-head">
+    <div><h1>상대 프로필</h1><p>로그인한 사용자만 조회할 수 있습니다.</p></div>
+    <a class="btn" href="profile.html">내 프로필로 돌아가기</a>
+  </div>
+  <section id="publicProfileContent" class="panel public-card"><div class="empty">불러오는 중...</div></section>
+</main>
+<div id="toast" class="toast"></div>
+<script src="js/api.js"></script>
+<script src="js/user-profile.js"></script>
+</body>
+</html>

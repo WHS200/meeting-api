@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>내 프로필 | PLAYUPP</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a class="brand" href="profile.html">PLAY<span>UPP</span></a>
+        <nav class="nav">
+          <a class="active" href="profile.html">내 프로필</a>
+        </nav>
+        <div class="top-actions">
+          <button id="logoutButton" class="btn sm">로그아웃</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="page">
+      <div class="page-head">
+        <div>
+          <h1>내 프로필</h1>
+          <p>현재 김규민 담당 API만 실제 백엔드에 연결되어 있습니다.</p>
+        </div>
+      </div>
+
+      <div class="grid">
+        <aside class="panel profile-summary">
+          <div id="avatar" class="avatar">?</div>
+          <h2 id="nicknameText">불러오는 중</h2>
+          <p id="regionText" class="muted">-</p>
+
+          <div class="info-list">
+            <div class="info-row">
+              <span>아이디</span><strong id="loginIdText">-</strong>
+            </div>
+            <div class="info-row">
+              <span>이메일</span><strong id="emailText">-</strong>
+            </div>
+            <div class="info-row">
+              <span>생년월일</span><strong id="birthText">-</strong>
+            </div>
+            <div class="info-row">
+              <span>성별</span><strong id="genderText">-</strong>
+            </div>
+          </div>
+
+          <form id="imageForm" class="stack">
+            <div class="field">
+              <label>프로필 이미지</label
+              ><input
+                name="profile_image"
+                type="file"
+                accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+              />
+            </div>
+            <button class="btn block" type="submit">이미지 등록 / 변경</button>
+          </form>
+        </aside>
+
+        <section class="section-stack">
+          <div class="panel">
+            <h2>내 정보 수정</h2>
+            <form id="profileForm">
+              <div class="form-grid">
+                <div class="field">
+                  <label>닉네임</label
+                  ><input id="nicknameInput" name="nickname" required />
+                </div>
+                <div class="field">
+                  <label>지역</label
+                  ><input id="regionInput" name="region" required />
+                </div>
+                <div class="field full">
+                  <div class="actions end">
+                    <button class="btn blue" type="submit">프로필 수정</button>
+                  </div>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          <div class="panel">
+            <div class="toolbar"><h2>운동 프로필</h2></div>
+            <form id="sportForm" class="inline-form">
+              <div class="field">
+                <label>운동 종목</label
+                ><select id="sportSelect" name="sport_id"></select>
+              </div>
+              <div class="field">
+                <label>실력</label>
+                <select name="skill_level">
+                  <option value="BRONZE">BRONZE</option>
+                  <option value="SILVER">SILVER</option>
+                  <option value="GOLD">GOLD</option>
+                  <option value="MASTER">MASTER</option>
+                </select>
+              </div>
+              <button class="btn blue" type="submit">종목 추가</button>
+            </form>
+            <div class="divider"></div>
+            <div id="sportList" class="sport-list">
+              <div class="empty">불러오는 중...</div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h2>상대 프로필 조회</h2>
+            <p class="muted">현재 API는 user_id로 상대 프로필을 조회합니다.</p>
+            <form id="lookupForm" class="lookup">
+              <div class="field">
+                <input
+                  name="user_id"
+                  type="number"
+                  min="1"
+                  placeholder="user_id 입력"
+                  required
+                />
+              </div>
+              <button class="btn" type="submit">조회</button>
+            </form>
+          </div>
+
+          <div class="panel">
+            <h2>비밀번호 변경</h2>
+            <form id="passwordForm">
+              <div class="form-grid">
+                <div class="field">
+                  <label>현재 비밀번호</label
+                  ><input name="current_password" type="password" required />
+                </div>
+                <div class="field">
+                  <label>새 비밀번호</label
+                  ><input
+                    name="new_password"
+                    type="password"
+                    minlength="8"
+                    required
+                  />
+                </div>
+                <div class="field full">
+                  <div class="actions end">
+                    <button class="btn" type="submit">비밀번호 변경</button>
+                  </div>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          <div class="panel danger-zone">
+            <h2>계정 삭제</h2>
+            <p class="muted">현재 백엔드의 soft delete API를 호출합니다.</p>
+            <button id="deleteButton" class="btn danger">계정 삭제</button>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <div id="toast" class="toast"></div>
+    <script src="js/api.js"></script>
+    <script src="js/profile.js"></script>
+  </body>
+</html>
