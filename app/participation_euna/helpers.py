@@ -3,7 +3,7 @@ from flask import session
 from app.shared.database import get_db_connection
 
 
-# 로그인 여부와 모임 존재 여부를 공통으로 확인
+# 모임 정보와 로그인 사용자 정보 가져오기
 def get_meeting_context(meeting_id):
     user_id = session.get("user_id")
 
@@ -33,7 +33,7 @@ def get_meeting_context(meeting_id):
     return connection, cursor, meeting, user_id, None
 
 
-# 로그인, 모임 존재 여부와 함께 모임장 권한까지 확인
+# 모임 존재 여부와 모임장 권한 확인
 def get_host_context(meeting_id):
     connection, cursor, meeting, user_id, error = get_meeting_context(meeting_id)
 
