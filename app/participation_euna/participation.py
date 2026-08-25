@@ -25,76 +25,78 @@ def join_meeting(meeting_id):
     if error:
         return error
 
-    # 이미 참여 신청한 사용자인지 확인
-    cursor.execute(
-        """
-        SELECT *
-        FROM meeting_participants
-        WHERE meeting_id = %s
-        AND user_id = %s
-        """,
-        (meeting_id, user_id)
-    )
-
-    participant = cursor.fetchone()
-
-    if participant:
-        cursor.close()
-        connection.close()
-        return {"message": "Already Participated"}, 409
-
-    # 현재 승인된 참여자 수 확인
-    cursor.execute(
-        """
-        SELECT COUNT(*) AS count
-        FROM meeting_participants
-        WHERE meeting_id = %s
-        AND participation_status = 'APPROVED'
-        """,
-        (meeting_id,)
-    )
-
-    participant_count = cursor.fetchone()["count"]
-
-    # 정원 초과 여부 확인
-    if participant_count >= meeting["max_participants"]:
-        cursor.close()
-        connection.close()
-        return {"message": "Meeting Full"}, 409
-
-    # 승인 방식에 따라 참여 상태 결정
-    if meeting["approval_type"] == "INSTANT":
-        participation_status = "APPROVED"
-
+    try:
+        # 이미 참여 신청한 사용자인지 확인
         cursor.execute(
             """
-            INSERT INTO meeting_participants
-                (meeting_id, user_id, participation_status, approved_at)
-            VALUES (%s, %s, %s, NOW())
+            SELECT *
+            FROM meeting_participants
+            WHERE meeting_id = %s
+            AND user_id = %s
             """,
-            (meeting_id, user_id, participation_status)
+            (meeting_id, user_id)
         )
-    else:
-        participation_status = "PENDING"
 
+        participant = cursor.fetchone()
+
+        if participant:
+            return {"message": "Already Participated"}, 409
+
+        # 현재 승인된 참여자 수 확인
         cursor.execute(
             """
-            INSERT INTO meeting_participants
+            SELECT COUNT(*) AS count
+            FROM meeting_participants
+            WHERE meeting_id = %s
+            AND participation_status = 'APPROVED'
+            """,
+            (meeting_id,)
+        )
+
+        participant_count = cursor.fetchone()["count"]
+
+        # 정원 초과 여부 확인
+        if participant_count >= meeting["max_participants"]:
+            return {"message": "Meeting Full"}, 409
+
+        # 승인 방식에 따라 참여 상태 결정
+        if meeting["approval_type"] == "INSTANT":
+            participation_status = "APPROVED"
+
+            cursor.execute(
+                """
+                INSERT INTO meeting_participants
+                    (meeting_id, user_id, participation_status, approved_at)
+                VALUES (%s, %s, %s, NOW())
+                """,
                 (meeting_id, user_id, participation_status)
-            VALUES (%s, %s, %s)
-            """,
-            (meeting_id, user_id, participation_status)
-        )
+            )
+        else:
+            participation_status = "PENDING"
 
-    connection.commit()
+            cursor.execute(
+                """
+                INSERT INTO meeting_participants
+                    (meeting_id, user_id, participation_status)
+                VALUES (%s, %s, %s)
+                """,
+                (meeting_id, user_id, participation_status)
+            )
 
-    cursor.close()
-    connection.close()
+        connection.commit()
 
-    return {
-        "message": "Participation Successful",
-        "participation_status": participation_status
-    }, 201
+        return {
+            "message": "Participation Successful",
+            "participation_status": participation_status
+        }, 201
+
+    except Exception:
+        connection.rollback()
+        raise
+
+    finally:
+        cursor.close()
+        connection.close()
 
 # 내 참여 신청 취소
 @participation_bp.delete("/<int:meeting_id>/participants/me")
@@ -107,44 +109,48 @@ def cancel_participation(meeting_id):
     if error:
         return error
 
-    # 내 참여 기록 확인
-    cursor.execute(
-        """
-        SELECT *
-        FROM meeting_participants
-        WHERE meeting_id = %s
-        AND user_id = %s
-        AND participation_status IN ('PENDING', 'APPROVED')
-        """,
-        (meeting_id, user_id)
-    )
+    try:
+        # 내 참여 기록 확인
+        cursor.execute(
+            """
+            SELECT *
+            FROM meeting_participants
+            WHERE meeting_id = %s
+            AND user_id = %s
+            AND participation_status IN ('PENDING', 'APPROVED')
+            """,
+            (meeting_id, user_id)
+        )
 
-    participant = cursor.fetchone()
+        participant = cursor.fetchone()
 
-    if participant is None:
+        if participant is None:
+            return {"message": "Participation Not Found"}, 404
+
+        # 참여 상태를 취소로 변경
+        cursor.execute(
+            """
+            UPDATE meeting_participants
+            SET participation_status = 'CANCELED',
+                canceled_at = NOW()
+            WHERE meeting_id = %s
+            AND user_id = %s
+            AND participation_status IN ('PENDING', 'APPROVED')
+            """,
+            (meeting_id, user_id)
+        )
+
+        connection.commit()
+
+        return {"message": "Participation Canceled"}, 200
+
+    except Exception:
+        connection.rollback()
+        raise
+
+    finally:
         cursor.close()
         connection.close()
-        return {"message": "Participation Not Found"}, 404
-
-    # 참여 상태를 취소로 변경
-    cursor.execute(
-        """
-        UPDATE meeting_participants
-        SET participation_status = 'CANCELED',
-            canceled_at = NOW()
-        WHERE meeting_id = %s
-        AND user_id = %s
-        AND participation_status IN ('PENDING', 'APPROVED')
-        """,
-        (meeting_id, user_id)
-    )
-
-    connection.commit()
-
-    cursor.close()
-    connection.close()
-
-    return {"message": "Participation Canceled"}, 200
 
 # 참가 신청 목록 조회
 @participation_bp.get("/<int:meeting_id>/participants")
@@ -157,29 +163,31 @@ def get_pending_participants(meeting_id):
     if error:
         return error
 
-    # 승인 대기 중인 참가 신청 목록 조회
-    cursor.execute(
-        """
-        SELECT
-            mp.user_id,
-            u.nickname,
-            mp.participation_status
-        FROM meeting_participants mp
-        JOIN users u ON mp.user_id = u.user_id
-        WHERE mp.meeting_id = %s
-        AND mp.participation_status = 'PENDING'
-        """,
-        (meeting_id,)
-    )
+    try:
+        # 승인 대기 중인 참가 신청 목록 조회
+        cursor.execute(
+            """
+            SELECT
+                mp.user_id,
+                u.nickname,
+                mp.participation_status
+            FROM meeting_participants mp
+            JOIN users u ON mp.user_id = u.user_id
+            WHERE mp.meeting_id = %s
+            AND mp.participation_status = 'PENDING'
+            """,
+            (meeting_id,)
+        )
 
-    participants = cursor.fetchall()
+        participants = cursor.fetchall()
 
-    cursor.close()
-    connection.close()
+        return {
+            "participants": participants
+        }, 200
 
-    return {
-        "participants": participants
-    }, 200
+    finally:
+        cursor.close()
+        connection.close()
 
 # 참가 신청 승인
 @participation_bp.post(
@@ -193,40 +201,42 @@ def approve_participant(meeting_id, target_user_id):
 
     if error:
         return error
-    
-    # 현재 승인된 참여자 수 확인
-    cursor.execute(
-        """
-        SELECT COUNT(*) AS count
-        FROM meeting_participants
-        WHERE meeting_id = %s
-        AND participation_status = 'APPROVED'
-        """,
-        (meeting_id,)
-    )
 
-    participant_count = cursor.fetchone()["count"]
+    try:
+        # 현재 승인된 참여자 수 확인
+        cursor.execute(
+            """
+            SELECT COUNT(*) AS count
+            FROM meeting_participants
+            WHERE meeting_id = %s
+            AND participation_status = 'APPROVED'
+            """,
+            (meeting_id,)
+        )
 
-    # 정원 초과 여부 확인
-    if participant_count >= meeting["max_participants"]:
+        participant_count = cursor.fetchone()["count"]
+
+        # 정원 초과 여부 확인
+        if participant_count >= meeting["max_participants"]:
+            return {"message": "Meeting Full"}, 409
+
+        # 승인 대기 중인 참가 신청을 APPROVED 상태로 변경
+        if not update_pending_status(
+            cursor, meeting_id, target_user_id, "APPROVED"
+        ):
+            return {"message": "Pending Participation Not Found"}, 404
+
+        connection.commit()
+
+        return {"message": "Participation Approved"}, 200
+
+    except Exception:
+        connection.rollback()
+        raise
+
+    finally:
         cursor.close()
         connection.close()
-        return {"message": "Meeting Full"}, 409
-
-    # 승인 대기 중인 참가 신청을 APPROVED 상태로 변경
-    if not update_pending_status(
-        cursor, meeting_id, target_user_id, "APPROVED"
-    ):
-        cursor.close()
-        connection.close()
-        return {"message": "Pending Participation Not Found"}, 404
-
-    connection.commit()
-
-    cursor.close()
-    connection.close()
-
-    return {"message": "Participation Approved"}, 200
 
 # 참가 신청 거절
 @participation_bp.post(
@@ -241,20 +251,24 @@ def reject_participant(meeting_id, target_user_id):
     if error:
         return error
 
-    # 승인 대기 중인 참가 신청을 REJECTED 상태로 변경
-    if not update_pending_status(
-        cursor, meeting_id, target_user_id, "REJECTED"
-    ):
+    try:
+        # 승인 대기 중인 참가 신청을 REJECTED 상태로 변경
+        if not update_pending_status(
+            cursor, meeting_id, target_user_id, "REJECTED"
+        ):
+            return {"message": "Pending Participation Not Found"}, 404
+
+        connection.commit()
+
+        return {"message": "Participation Rejected"}, 200
+
+    except Exception:
+        connection.rollback()
+        raise
+
+    finally:
         cursor.close()
         connection.close()
-        return {"message": "Pending Participation Not Found"}, 404
-
-    connection.commit()
-
-    cursor.close()
-    connection.close()
-
-    return {"message": "Participation Rejected"}, 200
 
 # 현재 참여자 목록 조회
 @participation_bp.get("/<int:meeting_id>/participants/approved")
@@ -267,25 +281,27 @@ def get_approved_participants(meeting_id):
     if error:
         return error
 
-    # 승인된 참여자 목록 조회
-    cursor.execute(
-        """
-        SELECT *
-        FROM meeting_participants
-        WHERE meeting_id = %s
-        AND participation_status = 'APPROVED'
-        """,
-        (meeting_id,)
-    )
+    try:
+        # 승인된 참여자 목록 조회
+        cursor.execute(
+            """
+            SELECT *
+            FROM meeting_participants
+            WHERE meeting_id = %s
+            AND participation_status = 'APPROVED'
+            """,
+            (meeting_id,)
+        )
 
-    participants = cursor.fetchall()
+        participants = cursor.fetchall()
 
-    cursor.close()
-    connection.close()
+        return {
+            "participants": participants
+        }, 200
 
-    return {
-        "participants": participants
-    }, 200
+    finally:
+        cursor.close()
+        connection.close()
 
 # 참여자 강퇴
 @participation_bp.delete(
@@ -300,42 +316,46 @@ def kick_participant(meeting_id, target_user_id):
     if error:
         return error
 
-    # 강퇴 대상이 현재 승인된 참여자인지 확인
-    cursor.execute(
-        """
-        SELECT *
-        FROM meeting_participants
-        WHERE meeting_id = %s
-        AND user_id = %s
-        AND participation_status = 'APPROVED'
-        """,
-        (meeting_id, target_user_id)
-    )
+    try:
+        # 강퇴 대상이 현재 승인된 참여자인지 확인
+        cursor.execute(
+            """
+            SELECT *
+            FROM meeting_participants
+            WHERE meeting_id = %s
+            AND user_id = %s
+            AND participation_status = 'APPROVED'
+            """,
+            (meeting_id, target_user_id)
+        )
 
-    participant = cursor.fetchone()
+        participant = cursor.fetchone()
 
-    if participant is None:
+        if participant is None:
+            return {"message": "Participant Not Found"}, 404
+
+        # 참여 상태를 강퇴로 변경
+        cursor.execute(
+            """
+            UPDATE meeting_participants
+            SET participation_status = 'KICKED'
+            WHERE meeting_id = %s
+            AND user_id = %s
+            """,
+            (meeting_id, target_user_id)
+        )
+
+        connection.commit()
+
+        return {"message": "Participant Kicked"}, 200
+
+    except Exception:
+        connection.rollback()
+        raise
+
+    finally:
         cursor.close()
         connection.close()
-        return {"message": "Participant Not Found"}, 404
-
-    # 참여 상태를 강퇴로 변경
-    cursor.execute(
-        """
-        UPDATE meeting_participants
-        SET participation_status = 'KICKED'
-        WHERE meeting_id = %s
-        AND user_id = %s
-        """,
-        (meeting_id, target_user_id)
-    )
-
-    connection.commit()
-
-    cursor.close()
-    connection.close()
-
-    return {"message": "Participant Kicked"}, 200
 
 # 출석 / No-Show 처리
 @participation_bp.post(
@@ -350,55 +370,55 @@ def update_attendance(meeting_id, target_user_id):
     if error:
         return error
 
-    # 출석 처리 대상이 현재 승인된 참여자인지 확인
-    cursor.execute(
-        """
-        SELECT *
-        FROM meeting_participants
-        WHERE meeting_id = %s
-        AND user_id = %s
-        AND participation_status = 'APPROVED'
-        """,
-        (meeting_id, target_user_id)
-    )
+    try:
+        # 출석 처리 대상이 현재 승인된 참여자인지 확인
+        cursor.execute(
+            """
+            SELECT *
+            FROM meeting_participants
+            WHERE meeting_id = %s
+            AND user_id = %s
+            AND participation_status = 'APPROVED'
+            """,
+            (meeting_id, target_user_id)
+        )
 
-    participant = cursor.fetchone()
+        participant = cursor.fetchone()
 
-    if participant is None:
+        if participant is None:
+            return {"message": "Participant Not Found"}, 404
+
+        # 요청으로 받은 출석 상태 확인
+        data = request.get_json(silent=True)
+
+        if not isinstance(data, dict):
+            return {"message": "Invalid Request"}, 400
+
+        attendance_status = data.get("attendance_status")
+
+        if attendance_status not in ["ATTENDED", "NO_SHOW"]:
+            return {"message": "Invalid Attendance Status"}, 400
+
+        # 출석 상태 저장
+        cursor.execute(
+            """
+            UPDATE meeting_participants
+            SET attendance_status = %s
+            WHERE meeting_id = %s
+            AND user_id = %s
+            """,
+            (attendance_status, meeting_id, target_user_id)
+        )
+
+        connection.commit()
+
+        return {"message": "Attendance Updated"}, 200
+
+    except Exception:
+        connection.rollback()
+        raise
+
+    finally:
         cursor.close()
         connection.close()
-        return {"message": "Participant Not Found"}, 404
-
-    # 요청으로 받은 출석 상태 확인
-    data = request.get_json(silent=True)
-
-    if not isinstance(data, dict):
-        cursor.close()
-        connection.close()
-        return {"message": "Invalid Request"}, 400
-
-    attendance_status = data.get("attendance_status")
-
-    if attendance_status not in ["ATTENDED", "NO_SHOW"]:
-        cursor.close()
-        connection.close()
-        return {"message": "Invalid Attendance Status"}, 400
-
-    # 출석 상태 저장
-    cursor.execute(
-        """
-        UPDATE meeting_participants
-        SET attendance_status = %s
-        WHERE meeting_id = %s
-        AND user_id = %s
-        """,
-        (attendance_status, meeting_id, target_user_id)
-    )
-
-    connection.commit()
-
-    cursor.close()
-    connection.close()
-
-    return {"message": "Attendance Updated"}, 200
 

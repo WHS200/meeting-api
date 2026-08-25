@@ -1,7 +1,7 @@
 CREATE TABLE meetings (
-    meeting_id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    host_id BIGINT NOT NULL,
-    sport_id BIGINT NOT NULL,
+    meeting_id INT AUTO_INCREMENT PRIMARY KEY,
+    host_id INT NOT NULL,
+    sport_id INT NOT NULL,
     title VARCHAR(100) NOT NULL,
     description TEXT NOT NULL,
     meeting_date DATE NOT NULL,

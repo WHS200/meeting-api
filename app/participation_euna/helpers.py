@@ -8,18 +8,27 @@ def get_meeting_context(meeting_id):
     user_id = session.get("user_id")
 
     connection = get_db_connection()
-    cursor = connection.cursor(dictionary=True)
+    cursor = None
 
-    cursor.execute(
-        """
-        SELECT *
-        FROM meetings
-        WHERE meeting_id = %s
-        """,
-        (meeting_id,)
-    )
+    try:
+        cursor = connection.cursor(dictionary=True)
 
-    meeting = cursor.fetchone()
+        cursor.execute(
+            """
+            SELECT *
+            FROM meetings
+            WHERE meeting_id = %s
+            """,
+            (meeting_id,)
+        )
+
+        meeting = cursor.fetchone()
+
+    except Exception:
+        if cursor is not None:
+            cursor.close()
+        connection.close()
+        raise
 
     if meeting is None:
         cursor.close()
