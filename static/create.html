@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>모임 생성 | PLAYUPP</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a class="brand" href="index.html"
+          ><span class="brand-mark">PLAY<span>UPP</span></span></a
+        >
+        <nav class="main-nav">
+          <a href="index.html">모임 찾기</a
+          ><a class="active" href="create.html">모임 생성</a
+          ><a href="my-meetings.html">내가 만든 모임</a
+          ><a href="chat.html">채팅</a>
+        </nav>
+        <div class="top-actions">
+          <a data-auth-user hidden href="profile.html"
+            ><span class="avatar" data-user-initial>?</span></a
+          >
+        </div>
+      </div>
+    </header>
+    <main class="page-width">
+      <div class="page-head">
+        <div>
+          <h1 data-form-title>모임 생성</h1>
+          <p>현재 meetings POST API 필드만 사용합니다.</p>
+        </div>
+      </div>
+      <section class="form-card">
+        <form id="meetingForm">
+          <div class="form-section">
+            <h2>기본 정보</h2>
+            <div class="form-grid">
+              <div class="field full">
+                <label>모임 제목</label
+                ><input name="title" maxlength="100" required />
+              </div>
+              <div class="field full">
+                <label>상세 설명</label
+                ><textarea name="description" required></textarea>
+              </div>
+              <div class="field">
+                <label>운동 종목</label
+                ><select name="sport_id" required></select>
+              </div>
+              <div class="field">
+                <label>승인 방식</label
+                ><select name="approval_type">
+                  <option value="APPROVAL">모임장 승인</option>
+                  <option value="INSTANT">즉시 승인</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="form-section">
+            <h2>일정 및 장소</h2>
+            <div class="form-grid">
+              <div class="field">
+                <label>날짜</label
+                ><input name="meeting_date" type="date" required />
+              </div>
+              <div class="field">
+                <label>시간</label
+                ><input name="meeting_time" type="time" required />
+              </div>
+              <div class="field full">
+                <label>장소</label><input name="location" required />
+              </div>
+            </div>
+          </div>
+          <div class="form-section">
+            <h2>정원</h2>
+            <div class="form-grid">
+              <div class="field">
+                <label>최대 인원</label
+                ><input
+                  name="max_participants"
+                  type="number"
+                  min="2"
+                  value="4"
+                  required
+                /><span class="hint">모임장을 포함한 총 정원입니다.</span>
+              </div>
+              <div id="statusField" class="field" hidden>
+                <label>모임 상태</label
+                ><select name="status">
+                  <option value="RECRUITING">RECRUITING</option>
+                  <option value="CLOSED">CLOSED</option>
+                  <option value="COMPLETED">COMPLETED</option>
+                  <option value="CANCELED">CANCELED</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="form-actions">
+            <a class="btn" href="index.html">취소</a
+            ><button class="btn blue" type="submit" data-submit-label>
+              모임 만들기
+            </button>
+          </div>
+          <div id="formStatus" class="status"></div>
+        </form>
+      </section>
+    </main>
+    <div id="toast" class="toast"></div>
+    <script src="js/api.js"></script>
+    <script src="js/common.js"></script>
+    <script src="js/meeting-form.js"></script>
+  </body>
+</html>

@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>사용자 프로필 | PLAYUPP</title>
+    <title>내가 만든 모임 | PLAYUPP</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -13,8 +13,8 @@
           ><span class="brand-mark">PLAY<span>UPP</span></span></a
         >
         <nav class="main-nav">
-          <a href="index.html">모임 찾기</a
-          ><a href="my-meetings.html">내가 만든 모임</a
+          <a href="index.html">모임 찾기</a><a href="create.html">모임 생성</a
+          ><a class="active" href="my-meetings.html">내가 만든 모임</a
           ><a href="chat.html">채팅</a>
         </nav>
         <div class="top-actions">
@@ -27,17 +27,21 @@
     <main class="page-width">
       <div class="page-head">
         <div>
-          <h1>사용자 프로필</h1>
-          <p>상대 프로필 조회 API 결과만 표시합니다.</p>
+          <h1>내가 만든 모임</h1>
+          <p>`GET /api/meetings/mine`이 제공하는 모임장 기준 목록입니다.</p>
         </div>
+        <a class="btn blue" href="create.html">모임 생성</a>
       </div>
-      <section id="userProfile" class="panel">
+      <div class="toolbar">
+        <h2>목록 <small id="myMeetingTotal"></small></h2>
+      </div>
+      <div id="myMeetingList" class="meeting-list">
         <div class="empty">불러오는 중...</div>
-      </section>
+      </div>
     </main>
     <div id="toast" class="toast"></div>
     <script src="js/api.js"></script>
     <script src="js/common.js"></script>
-    <script src="js/user-profile.js"></script>
+    <script src="js/my-meetings.js"></script>
   </body>
 </html>

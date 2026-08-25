@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>모임 상세 | PLAYUPP</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a class="brand" href="index.html"
+          ><span class="brand-mark">PLAY<span>UPP</span></span></a
+        >
+        <nav class="main-nav">
+          <a class="active" href="index.html">모임 찾기</a
+          ><a href="create.html">모임 생성</a
+          ><a href="my-meetings.html">내가 만든 모임</a
+          ><a href="chat.html">채팅</a>
+        </nav>
+        <div class="top-actions">
+          <a class="btn sm" data-auth-guest href="login.html">로그인</a
+          ><a data-auth-user hidden href="profile.html"
+            ><span class="avatar" data-user-initial>?</span></a
+          >
+        </div>
+      </div>
+    </header>
+    <main class="page-width">
+      <div class="detail-grid">
+        <section id="detailContent" class="detail-card">
+          <div class="empty">모임을 불러오는 중...</div>
+        </section>
+        <aside class="side-card panel sticky" id="detailSide">
+          <div class="empty">확인 중...</div>
+        </aside>
+      </div>
+      <div class="spacer"></div>
+      <section id="hostPanel" class="panel" hidden>
+        <div class="page-head">
+          <div>
+            <h1>참가자 관리</h1>
+            <p>
+              승인 대기, 승인/거절, 강퇴, 출석 처리는 현재 participation API만
+              사용합니다.
+            </p>
+          </div>
+        </div>
+        <h2>승인 대기</h2>
+        <div class="table-wrap">
+          <table class="list-table">
+            <thead>
+              <tr>
+                <th>user_id</th>
+                <th>닉네임</th>
+                <th>상태</th>
+                <th>관리</th>
+              </tr>
+            </thead>
+            <tbody id="pendingBody"></tbody>
+          </table>
+        </div>
+        <div class="spacer"></div>
+        <h2>승인된 참가자</h2>
+        <div class="table-wrap">
+          <table class="list-table">
+            <thead>
+              <tr>
+                <th>user_id</th>
+                <th>닉네임</th>
+                <th>출석</th>
+                <th>관리</th>
+              </tr>
+            </thead>
+            <tbody id="approvedBody"></tbody>
+          </table>
+        </div>
+      </section>
+      <div id="approvedSummary" class="muted" style="margin-top: 12px"></div>
+    </main>
+    <div id="toast" class="toast"></div>
+    <script src="js/api.js"></script>
+    <script src="js/common.js"></script>
+    <script src="js/detail.js"></script>
+  </body>
+</html>
