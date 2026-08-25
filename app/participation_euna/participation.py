@@ -106,6 +106,7 @@ def cancel_participation(meeting_id):
         FROM meeting_participants
         WHERE meeting_id = %s
         AND user_id = %s
+        AND participation_status IN ('PENDING', 'APPROVED')
         """,
         (meeting_id, user_id)
     )
@@ -125,6 +126,7 @@ def cancel_participation(meeting_id):
             canceled_at = NOW()
         WHERE meeting_id = %s
         AND user_id = %s
+        AND participation_status IN ('PENDING', 'APPROVED')
         """,
         (meeting_id, user_id)
     )
