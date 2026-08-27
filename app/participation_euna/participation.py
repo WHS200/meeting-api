@@ -123,6 +123,10 @@ def cancel_participation(meeting_id):
         return error
 
     try:
+        # 종료된 모임에서는 참여 취소 불가
+        if meeting["status"] == "COMPLETED":
+            return {"message": "Completed meeting cannot be canceled."}, 409
+
         # 내 참여 기록 확인
         cursor.execute(
             """
@@ -225,6 +229,23 @@ def approve_participant(meeting_id, target_user_id):
     try:
         if meeting["status"] != "RECRUITING":
             return {"message": "Meeting is not recruiting."}, 409
+        
+        # 승인 대기 중인 참가 신청인지 확인
+        cursor.execute(
+            """
+            SELECT *
+            FROM meeting_participants
+            WHERE meeting_id = %s
+            AND user_id = %s
+            AND participation_status = 'PENDING'
+            """,
+            (meeting_id, target_user_id)
+        )
+
+        pending_participant = cursor.fetchone()
+
+        if pending_participant is None:
+            return {"message": "Pending Participation Not Found"}, 404
 
         # 현재 승인된 참여자 수 확인
         cursor.execute(
@@ -244,10 +265,9 @@ def approve_participant(meeting_id, target_user_id):
             return {"message": "Meeting Full"}, 409
 
         # 승인 대기 중인 참가 신청을 APPROVED 상태로 변경
-        if not update_pending_status(
+        update_pending_status(
             cursor, meeting_id, target_user_id, "APPROVED"
-        ):
-            return {"message": "Pending Participation Not Found"}, 404
+        )
 
         add_chat_room_member(cursor, meeting_id, target_user_id)
 
@@ -310,10 +330,13 @@ def get_approved_participants(meeting_id):
         # 승인된 참여자 목록 조회
         cursor.execute(
             """
-            SELECT *
-            FROM meeting_participants
-            WHERE meeting_id = %s
-            AND participation_status = 'APPROVED'
+            SELECT
+                mp.*,
+                u.nickname
+            FROM meeting_participants mp
+            JOIN users u ON mp.user_id = u.user_id
+            WHERE mp.meeting_id = %s
+            AND mp.participation_status = 'APPROVED'
             """,
             (meeting_id,)
         )
@@ -342,6 +365,10 @@ def kick_participant(meeting_id, target_user_id):
         return error
 
     try:
+        # 종료된 모임에서는 참여자 강퇴 불가
+        if meeting["status"] == "COMPLETED":
+            return {"message": "Completed meeting cannot remove participants."}, 409
+
         # 강퇴 대상이 현재 승인된 참여자인지 확인
         cursor.execute(
             """
@@ -404,6 +431,10 @@ def update_attendance(meeting_id, target_user_id):
         return error
 
     try:
+        # 종료된 모임에서만 출석 / No-Show 처리 가능
+        if meeting["status"] != "COMPLETED":
+            return {"message": "Meeting is not completed."}, 409
+
         # 출석 처리 대상이 현재 승인된 참여자인지 확인
         cursor.execute(
             """
