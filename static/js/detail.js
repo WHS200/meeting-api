@@ -45,7 +45,7 @@ async function detectHostAndLoad() {
 }
 function renderParticipantActions() {
   const recruiting = meeting.status === "RECRUITING";
-  side.innerHTML = `<h2>참가</h2><p class="muted">현재 API에는 내 신청 상태 조회가 없어 신청/취소 버튼을 함께 제공합니다. 서버가 실제 상태를 검증합니다.</p><div class="action-stack"><button id="joinButton" class="btn blue" ${recruiting ? "" : "disabled"}>${recruiting ? "참가 신청" : "모집 중이 아님"}</button><button id="cancelButton" class="btn danger">참가 취소</button><a class="btn" href="chat.html">채팅방 보기</a></div>`;
+  side.innerHTML = `<h2>참가</h2><div class="action-stack"><button id="joinButton" class="btn blue" ${recruiting ? "" : "disabled"}>${recruiting ? "참가 신청" : "모집 중이 아님"}</button><button id="cancelButton" class="btn danger">참가 취소</button><a class="btn" href="chat.html">채팅방 보기</a></div>`;
   document.getElementById("joinButton").onclick = joinMeeting;
   document.getElementById("cancelButton").onclick = cancelMeeting;
 }
@@ -58,7 +58,7 @@ async function joinMeeting() {
     const d = await apiFetch(`/api/meetings/${meetingId}/participants`, {
       method: "POST",
     });
-    showToast(`${d.message} (${d.participation_status})`);
+    showToast(d.message);
   } catch (e) {
     showToast(e.message);
   }
@@ -108,10 +108,10 @@ async function loadHostManagement(pending) {
     ? pending
         .map(
           (p) =>
-            `<tr><td>${p.user_id}</td><td>${escapeHtml(p.nickname)}</td><td>${escapeHtml(p.participation_status)}</td><td><div class="small-gap"><button class="btn sm blue" data-approve="${p.user_id}">승인</button><button class="btn sm danger" data-reject="${p.user_id}">거절</button><a class="btn sm" href="user-profile.html?id=${p.user_id}">프로필</a></div></td></tr>`,
+            `<tr><td>${escapeHtml(p.nickname)}</td><td>승인 대기</td><td><div class="small-gap"><button class="btn sm blue" data-approve="${p.user_id}">승인</button><button class="btn sm danger" data-reject="${p.user_id}">거절</button><a class="btn sm" href="user-profile.html?id=${p.user_id}">프로필</a></div></td></tr>`,
         )
         .join("")
-    : '<tr><td colspan="4">승인 대기 신청이 없습니다.</td></tr>';
+    : '<tr><td colspan="3">승인 대기 신청이 없습니다.</td></tr>';
   pendingBody
     .querySelectorAll("[data-approve]")
     .forEach((b) => (b.onclick = () => approve(Number(b.dataset.approve))));
@@ -132,10 +132,10 @@ async function loadApprovedHost() {
     ? rows
         .map(
           ({ p, profile }) =>
-            `<tr><td>${p.user_id}</td><td>${escapeHtml(profile?.nickname || "-")}</td><td>${escapeHtml(p.attendance_status || "-")}</td><td><div class="small-gap"><button class="btn sm" data-attend="${p.user_id}" data-value="ATTENDED">출석</button><button class="btn sm" data-attend="${p.user_id}" data-value="NO_SHOW">노쇼</button><button class="btn sm danger" data-kick="${p.user_id}">강퇴</button><a class="btn sm" href="user-profile.html?id=${p.user_id}">프로필</a></div></td></tr>`,
+            `<tr><td>${escapeHtml(profile?.nickname || "-")}</td><td>${p.attendance_status === "ATTENDED" ? "출석" : p.attendance_status === "NO_SHOW" ? "불참" : "미처리"}</td><td><div class="small-gap"><button class="btn sm" data-attend="${p.user_id}" data-value="ATTENDED">출석</button><button class="btn sm" data-attend="${p.user_id}" data-value="NO_SHOW">노쇼</button><button class="btn sm danger" data-kick="${p.user_id}">강퇴</button><a class="btn sm" href="user-profile.html?id=${p.user_id}">프로필</a></div></td></tr>`,
         )
         .join("")
-    : '<tr><td colspan="4">승인된 참가자가 없습니다.</td></tr>';
+    : '<tr><td colspan="3">승인된 참가자가 없습니다.</td></tr>';
   document
     .querySelectorAll("[data-attend]")
     .forEach(

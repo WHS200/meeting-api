@@ -11,10 +11,10 @@ async function loadMine() {
       return;
     }
     list.innerHTML = data.meetings
-      .map(
-        (m) =>
-          `<article class="meeting-card"><div class="thumb">${escapeHtml((m.sport_name || "운동").slice(0, 1))}</div><div><span class="badge">${escapeHtml(m.sport_name)}</span><h3>${escapeHtml(m.title)}</h3><div class="meta"><span>${formatMeetingDate(m.meeting_date)} · ${formatMeetingTime(m.meeting_time)}</span><span>${escapeHtml(m.location)}</span><span>정원 ${m.max_participants}명</span></div></div><div class="meeting-side"><span class="badge ${meetingStatusClass(m.status)}">${meetingStatusLabel(m.status)}</span><div class="small-gap"><a class="btn sm" href="detail.html?id=${m.meeting_id}">관리</a><a class="btn sm" href="edit.html?id=${m.meeting_id}">수정</a></div></div></article>`,
-      )
+      .map((m) => {
+        const sport = sportVisual(m.sport_name);
+        return `<article class="meeting-card"><div class="thumb sport-${sport.theme}" aria-hidden="true">${sport.icon}</div><div><span class="badge">${escapeHtml(m.sport_name)}</span><h3>${escapeHtml(m.title)}</h3><div class="meta"><span>${formatMeetingDate(m.meeting_date)} · ${formatMeetingTime(m.meeting_time)}</span><span>${escapeHtml(m.location)}</span><span>정원 ${m.max_participants}명</span></div></div><div class="meeting-side"><span class="badge ${meetingStatusClass(m.status)}">${meetingStatusLabel(m.status)}</span><div class="small-gap"><a class="btn sm" href="detail.html?id=${m.meeting_id}">관리</a><a class="btn sm" href="edit.html?id=${m.meeting_id}">수정</a></div></div></article>`;
+      })
       .join("");
   } catch (e) {
     list.innerHTML = `<div class="empty">${escapeHtml(e.message)}</div>`;

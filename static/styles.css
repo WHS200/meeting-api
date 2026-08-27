@@ -412,9 +412,38 @@ button {
   border-radius: 9px;
   display: grid;
   place-items: center;
-  color: #8e99a7;
-  font-weight: 900;
-  font-size: 22px;
+  font-size: 36px;
+  line-height: 1;
+  filter: saturate(0.9);
+}
+.thumb.sport-table-tennis {
+  border-color: #fecaca;
+  background: linear-gradient(135deg, #fff7f7, #fee2e2);
+}
+.thumb.sport-badminton {
+  border-color: #bfdbfe;
+  background: linear-gradient(135deg, #f5f9ff, #dbeafe);
+}
+.thumb.sport-tennis {
+  border-color: #d9f99d;
+  background: linear-gradient(135deg, #fbfff4, #ecfccb);
+}
+.thumb.sport-football {
+  border-color: #bbf7d0;
+  background: linear-gradient(135deg, #f4fff8, #dcfce7);
+}
+.thumb.sport-basketball {
+  border-color: #fed7aa;
+  background: linear-gradient(135deg, #fffaf5, #ffedd5);
+}
+.thumb.sport-baseball,
+.thumb.sport-volleyball {
+  border-color: #e2e8f0;
+  background: linear-gradient(135deg, #fff, #f1f5f9);
+}
+.thumb.sport-running {
+  border-color: #ddd6fe;
+  background: linear-gradient(135deg, #faf8ff, #ede9fe);
 }
 .meeting-card h3 {
   margin: 7px 0 8px;
@@ -476,11 +505,93 @@ button {
   display: grid;
   gap: 14px;
 }
-.scope-card ul {
-  padding-left: 18px;
-  margin: 10px 0 0;
+.instagram-banner {
+  position: relative;
+  isolation: isolate;
+  height: 220px;
+  min-height: 220px;
+  padding: 15px 18px;
+  border: 2px solid #e4e8ef;
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  color: #111827;
+  background: linear-gradient(145deg, #fff 0%, #f7f9fc 100%);
+  box-shadow: 0 12px 28px rgb(15 23 42 / 6%);
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease;
+}
+/* .instagram-banner:hover {
+  transform: translateY(-3px);
+  border-color: #d6dce5;
+  box-shadow: 0 18px 34px rgb(15 23 42 / 10%);
+} */
+.instagram-banner:focus-visible {
+  outline: 3px solid #111827;
+  outline-offset: 3px;
+}
+.instagram-banner__label {
+  width: 32px;
+  height: 32px;
+  margin-bottom: 10px;
+  border: 2px solid #e1e5eb;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
   color: #64748b;
-  line-height: 1.8;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  box-shadow: 0 2px 0 rgb(15 23 42 / 4%);
+}
+.instagram-banner strong {
+  position: relative;
+  z-index: 1;
+  font-size: 20px;
+  line-height: 1.25;
+  letter-spacing: -0.055em;
+}
+.instagram-banner__description {
+  position: relative;
+  z-index: 1;
+  margin-top: 6px;
+  color: #7b879b;
+  font-size: 11px;
+  line-height: 1.45;
+  letter-spacing: -0.025em;
+}
+.instagram-banner__cta {
+  position: relative;
+  z-index: 1;
+  min-height: 36px;
+  margin-top: 10px;
+  padding: 0 14px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: #111827;
+  font-size: 11px;
+  font-weight: 800;
+  box-shadow: 0 8px 16px rgb(15 23 42 / 12%);
+  transition: background 180ms ease;
+}
+.instagram-banner:hover .instagram-banner__cta {
+  background: #273449;
+}
+.instagram-banner__circle {
+  position: absolute;
+  z-index: 0;
+  width: 82px;
+  height: 82px;
+  right: -25px;
+  bottom: 26px;
+  border: 12px solid #dce2eb;
+  border-radius: 50%;
 }
 .empty {
   padding: 45px 20px;

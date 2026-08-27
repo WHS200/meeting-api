@@ -4,7 +4,7 @@ async function loadProfile() {
   if (!user) return;
   if (!userId) {
     document.getElementById("userProfile").innerHTML =
-      '<div class="empty">올바른 user_id가 필요합니다.</div>';
+      '<div class="empty">올바른 사용자 번호가 필요합니다.</div>';
     return;
   }
   try {

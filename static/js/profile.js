@@ -173,7 +173,7 @@ document.getElementById("lookupForm").addEventListener("submit", (e) => {
   e.preventDefault();
   const id = Number(e.currentTarget.user_id.value);
   if (!Number.isInteger(id) || id < 1)
-    return showToast("올바른 user_id를 입력하세요.");
+    return showToast("올바른 사용자 번호를 입력하세요.");
   location.href = `/static/user-profile.html?id=${id}`;
 });
 document.getElementById("deleteButton").addEventListener("click", async () => {

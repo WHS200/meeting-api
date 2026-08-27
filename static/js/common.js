@@ -85,6 +85,22 @@ function meetingStatusClass(status) {
 function approvalTypeLabel(type) {
   return type === "INSTANT" ? "즉시 승인" : "모임장 승인";
 }
+function sportVisual(name) {
+  const normalizedName = String(name || "").trim();
+  const visuals = {
+    탁구: { icon: "🏓", theme: "table-tennis" },
+    배드민턴: { icon: "🏸", theme: "badminton" },
+    테니스: { icon: "🎾", theme: "tennis" },
+    풋살: { icon: "⚽", theme: "football" },
+    축구: { icon: "⚽", theme: "football" },
+    농구: { icon: "🏀", theme: "basketball" },
+    야구: { icon: "⚾", theme: "baseball" },
+    배구: { icon: "🏐", theme: "volleyball" },
+    러닝: { icon: "🏃", theme: "running" },
+    런닝: { icon: "🏃", theme: "running" },
+  };
+  return visuals[normalizedName] || { icon: "🏅", theme: "default" };
+}
 function formatMeetingDate(value) {
   if (!value) return "-";
   return String(value).slice(0, 10);

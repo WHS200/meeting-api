@@ -10,7 +10,7 @@ async function startChat() {
   me = await requireLogin();
   if (!me) return;
   if (typeof io !== "function") {
-    showToast("Socket.IO 클라이언트를 불러오지 못했습니다.");
+    showToast("채팅 기능을 불러오지 못했습니다.");
     return;
   }
   socket = io();
@@ -35,7 +35,7 @@ async function loadRooms() {
       ? rooms
           .map(
             (r) =>
-              `<button class="chat-room" data-room="${r.chat_room_id}"><div class="avatar">${escapeHtml((r.meeting_title || "채").slice(0, 1))}</div><div class="grow"><strong>${escapeHtml(r.meeting_title || `채팅방 ${r.chat_room_id}`)}</strong><p>${escapeHtml(r.room_type)} · room ${r.chat_room_id}</p></div></button>`,
+              `<button class="chat-room" data-room="${r.chat_room_id}"><div class="avatar">${escapeHtml((r.meeting_title || "채").slice(0, 1))}</div><div class="grow"><strong>${escapeHtml(r.meeting_title || "모임 채팅방")}</strong></div></button>`,
           )
           .join("")
       : '<div class="empty">참여 중인 채팅방이 없습니다.</div>';
@@ -61,7 +61,7 @@ async function openRoom(room) {
         Number(b.dataset.room) === room.chat_room_id,
       ),
     );
-  roomTitle.textContent = room.meeting_title || `채팅방 ${room.chat_room_id}`;
+  roomTitle.textContent = room.meeting_title || "모임 채팅방";
   messagesEl.innerHTML = '<div class="empty">메시지를 불러오는 중...</div>';
   socket.emit("join_room", { chat_room_id: room.chat_room_id });
   try {

@@ -26,7 +26,6 @@
       <div class="page-head">
         <div>
           <h1>내 프로필</h1>
-          <p>사용자·프로필·운동프로필 API에 연결되어 있습니다.</p>
         </div>
       </div>
       <div class="profile-grid">
@@ -108,12 +107,9 @@
           </div>
           <div class="panel">
             <h2>상대 프로필 조회</h2>
-            <p class="muted">
-              현재 API가 user_id 조회만 제공하므로 user_id를 입력합니다.
-            </p>
             <form id="lookupForm" class="inline-form">
               <div class="field">
-                <label>user_id</label
+                <label>사용자 번호</label
                 ><input name="user_id" type="number" min="1" required />
               </div>
               <div></div>
@@ -147,7 +143,6 @@
           </div>
           <div class="panel danger-zone">
             <h2>계정 삭제</h2>
-            <p class="muted">백엔드의 soft delete API를 호출합니다.</p>
             <button id="deleteButton" class="btn danger">계정 삭제</button>
           </div>
         </section>
