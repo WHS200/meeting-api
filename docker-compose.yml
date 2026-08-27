@@ -1,7 +1,7 @@
 services:
   mysql:
     image: mysql:8.0
-    container_name: meeting-mysql
+    container_name: yanawa-mysql
     restart: unless-stopped
 
     environment:
@@ -29,7 +29,7 @@ services:
 
   app:
     build: .
-    container_name: meeting-api
+    container_name: yanawa-api
     restart: unless-stopped
 
     depends_on:
