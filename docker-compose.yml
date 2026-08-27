@@ -41,7 +41,12 @@ services:
       SECRET_KEY: ${SECRET_KEY}
 
     ports:
-      - '5000:5000'
+      - '127.0.0.1:5000:5000'
+    #   127.0.0.1 : 5000 : 5000
+    #       │         │      │
+    #       │         │      └─ Flask 컨테이너 내부 포트
+    #       │         └──────── EC2 Ubuntu의 포트
+    #       └────────────────── EC2 자기 자신에서만 접근 허용
 
     volumes:
       - uploads_data:/app/uploads
