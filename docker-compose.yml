@@ -5,13 +5,13 @@ services:
     restart: unless-stopped
 
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: meeting_db
-      MYSQL_USER: meeting_user
-      MYSQL_PASSWORD: meeting_password
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
 
     ports:
-      - "3307:3306"
+      - '3307:3306'
 
     volumes:
       - mysql_data:/var/lib/mysql
@@ -20,18 +20,12 @@ services:
     healthcheck:
       test:
         [
-          "CMD",
-          "mysqladmin",
-          "ping",
-          "-h",
-          "localhost",
-          "-uroot",
-          "-proot"
+          'CMD-SHELL',
+          'mysqladmin ping -h localhost -uroot -p"$${MYSQL_ROOT_PASSWORD}"',
         ]
       interval: 5s
       timeout: 5s
       retries: 20
-
 
   app:
     build: .
@@ -44,17 +38,16 @@ services:
 
     environment:
       DB_HOST: mysql
-      DB_USER: meeting_user
-      DB_PASSWORD: meeting_password
-      DB_NAME: meeting_db
-      SECRET_KEY: meeting-dev-secret-key
+      DB_USER: ${MYSQL_USER}
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+      DB_NAME: ${MYSQL_DATABASE}
+      SECRET_KEY: ${SECRET_KEY}
 
     ports:
-      - "5000:5000"
+      - '5000:5000'
 
     volumes:
       - uploads_data:/app/uploads
-
 
 volumes:
   mysql_data:

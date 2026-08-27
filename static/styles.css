@@ -71,12 +71,19 @@ button {
   min-width: 145px;
 }
 .brand-mark {
-  font-size: 25px;
+  font-size: 27px;
   font-weight: 900;
-  letter-spacing: -1.3px;
+  letter-spacing: -1.6px;
+  color: #172033;
 }
 .brand-mark span {
   color: var(--blue);
+}
+.brand-mark i {
+  display: inline-block;
+  font-style: normal;
+  transform: rotate(7deg);
+  transform-origin: 50% 75%;
 }
 .main-nav {
   display: flex;
@@ -192,7 +199,7 @@ button {
 }
 .btn {
   min-height: 40px;
-  border-radius: 8px;
+  border-radius: 10px;
   border: 1px solid var(--line);
   padding: 0 14px;
   font-weight: 750;
@@ -202,13 +209,19 @@ button {
   align-items: center;
   justify-content: center;
   gap: 7px;
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease,
+    background-color 150ms ease,
+    border-color 150ms ease;
 }
-.btn:hover {
-  filter: brightness(0.98);
+.btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
 }
 .btn.primary {
-  border-color: var(--dark);
-  background: var(--dark);
+  border-color: var(--blue);
+  background: var(--blue);
   color: #fff;
 }
 .btn.blue {
@@ -324,21 +337,28 @@ button {
   padding: 36px 42px;
   position: relative;
   overflow: hidden;
-  background: linear-gradient(135deg, #fff, #f4f7fb);
+  background: linear-gradient(135deg, #fff 0%, #f7faff 52%, #edf5ff 100%);
   border: 1px solid var(--line);
   border-radius: 12px;
 }
 .hero h1 {
   margin: 8px 0 10px;
-  font-size: 30px;
+  font-size: 32px;
+  font-weight: 850;
   line-height: 1.35;
   letter-spacing: -1px;
 }
 .hero p {
   color: var(--muted);
   max-width: 560px;
+  line-height: 1.7;
 }
 .eyebrow {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: var(--soft);
   font-size: 12px;
   font-weight: 800;
   color: var(--blue);
@@ -349,16 +369,21 @@ button {
   top: 28px;
   width: 205px;
   height: 155px;
-  border: 1px solid #e0e6ee;
+  border: 1px solid #d6e6fb;
   border-radius: 50%;
-  opacity: 0.75;
+  background:
+    radial-gradient(circle at 78% 28%, #dbeafe 0 10px, transparent 11px),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.7), rgba(219, 234, 254, 0.45));
+  box-shadow: 0 18px 35px rgba(37, 99, 235, 0.1);
+  opacity: 0.9;
+  transform: rotate(-3deg);
 }
 .hero-art:before {
   content: "";
   position: absolute;
   width: 72px;
   height: 106px;
-  border: 8px solid #cbd3dd;
+  border: 8px solid #93baf5;
   border-radius: 50%;
   left: 38px;
   top: 20px;
@@ -369,10 +394,11 @@ button {
   position: absolute;
   width: 18px;
   height: 18px;
-  background: #bcc6d2;
+  background: var(--blue);
   border-radius: 50%;
   right: 36px;
   top: 56px;
+  box-shadow: 0 0 0 8px rgba(37, 99, 235, 0.1);
 }
 .toolbar {
   display: flex;
@@ -398,12 +424,16 @@ button {
   grid-template-columns: 100px 1fr auto;
   gap: 16px;
   align-items: center;
-  transition: 0.15s;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+  transition:
+    transform 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease;
 }
 .meeting-card:hover {
   border-color: #cbd5e1;
-  box-shadow: var(--shadow);
-  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+  transform: translateY(-2px);
 }
 .thumb {
   height: 86px;
@@ -414,7 +444,7 @@ button {
   place-items: center;
   font-size: 36px;
   line-height: 1;
-  filter: saturate(0.9);
+  filter: saturate(1.04);
 }
 .thumb.sport-table-tennis {
   border-color: #fecaca;
@@ -446,7 +476,7 @@ button {
   background: linear-gradient(135deg, #faf8ff, #ede9fe);
 }
 .meeting-card h3 {
-  margin: 7px 0 8px;
+  margin: 8px 0 10px;
   font-size: 16px;
 }
 .meta {
@@ -511,7 +541,7 @@ button {
   height: 220px;
   min-height: 220px;
   padding: 15px 18px;
-  border: 2px solid #e4e8ef;
+  border: 1px solid #e4e8ef;
   border-radius: 12px;
   overflow: hidden;
   display: flex;
@@ -519,7 +549,7 @@ button {
   align-items: flex-start;
   color: #111827;
   background: linear-gradient(145deg, #fff 0%, #f7f9fc 100%);
-  box-shadow: 0 12px 28px rgb(15 23 42 / 6%);
+  box-shadow: 0 6px 18px rgb(15 23 42 / 4%);
   transition:
     transform 180ms ease,
     box-shadow 180ms ease;
@@ -534,15 +564,15 @@ button {
   outline-offset: 3px;
 }
 .instagram-banner__label {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   margin-bottom: 10px;
-  border: 2px solid #e1e5eb;
-  border-radius: 9px;
+  border: 1px solid #e1e5eb;
+  border-radius: 8px;
   display: grid;
   place-items: center;
-  color: #64748b;
-  font-size: 12px;
+  color: #8a94a5;
+  font-size: 10px;
   font-weight: 900;
   letter-spacing: -0.03em;
   box-shadow: 0 2px 0 rgb(15 23 42 / 4%);
@@ -550,7 +580,7 @@ button {
 .instagram-banner strong {
   position: relative;
   z-index: 1;
-  font-size: 20px;
+  font-size: 18px;
   line-height: 1.25;
   letter-spacing: -0.055em;
 }
@@ -592,6 +622,7 @@ button {
   bottom: 26px;
   border: 12px solid #dce2eb;
   border-radius: 50%;
+  opacity: 0.55;
 }
 .empty {
   padding: 45px 20px;
