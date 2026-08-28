@@ -39,6 +39,7 @@ services:
       DB_PASSWORD: ${MYSQL_PASSWORD}
       DB_NAME: ${MYSQL_DATABASE}
       SECRET_KEY: ${SECRET_KEY}
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME}
 
     ports:
       - '127.0.0.1:5000:5000'
