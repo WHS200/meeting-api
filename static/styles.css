@@ -905,8 +905,14 @@ button {
 }
 .message {
   display: flex;
+  align-items: flex-start;
   gap: 8px;
   margin: 12px 0;
+}
+.chat-profile-avatar {
+  flex: 0 0 auto;
+  text-decoration: none;
+  cursor: pointer;
 }
 .bubble {
   max-width: 68%;

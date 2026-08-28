@@ -5,6 +5,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from app.shared.database import get_db_connection
 from app.shared.decorators import login_required
 from app.shared.request_utils import get_json_body
+from app.shared.s3 import generate_profile_image_url
 
 # /api/users 용
 users_bp = Blueprint("users", __name__, url_prefix="/api/users")
@@ -37,6 +38,10 @@ def get_me():
     if not user_info:
         session.clear()
         return {"message": "User not found."}, 401
+
+    user_info["profile_image"] = (
+        generate_profile_image_url(user_info.get("profile_image"))
+    )
 
     return user_info, 200
 
@@ -203,6 +208,10 @@ def get_user_profile(user_id):
             return {
                 "message": "User not found."
             }, 404
+
+        user["profile_image"] = (
+            generate_profile_image_url(user.get("profile_image"))
+        )
 
         # 상대 운동 목록 조회
         cursor.execute(

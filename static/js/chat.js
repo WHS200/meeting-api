@@ -84,9 +84,20 @@ function renderMembers(members) {
 }
 function appendMessage(m) {
   const mine = m.sender_nickname === me.nickname;
+  const senderName = m.sender_nickname || `user ${m.sender_id}`;
+  const senderId = Number(m.sender_id);
+  const hasProfile = Number.isInteger(senderId) && senderId > 0;
+  const avatarContent = m.sender_profile_image
+    ? `<img src="${escapeHtml(m.sender_profile_image)}" alt="${escapeHtml(senderName)} 프로필">`
+    : escapeHtml(senderName.slice(0, 1));
+  const avatar = mine
+    ? ""
+    : hasProfile
+      ? `<a class="avatar chat-profile-avatar" href="user-profile.html?id=${senderId}" aria-label="${escapeHtml(senderName)} 프로필 보기" title="프로필 보기">${avatarContent}</a>`
+      : `<span class="avatar chat-profile-avatar">${avatarContent}</span>`;
   const div = document.createElement("div");
   div.className = `message ${mine ? "mine" : ""}`;
-  div.innerHTML = `<div class="bubble"><strong>${escapeHtml(m.sender_nickname || `user ${m.sender_id}`)}</strong><div>${escapeHtml(m.content)}</div><div class="message-meta">${escapeHtml(String(m.created_at || "").replace("T", " "))}</div></div>`;
+  div.innerHTML = `${avatar}<div class="bubble"><strong>${escapeHtml(senderName)}</strong><div>${escapeHtml(m.content)}</div><div class="message-meta">${escapeHtml(String(m.created_at || "").replace("T", " "))}</div></div>`;
   messagesEl.appendChild(div);
 }
 function scrollBottom() {

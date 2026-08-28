@@ -8,6 +8,8 @@ from flask_socketio import emit, join_room, leave_room
 
 from app.shared.database import get_db_connection
 
+from app.shared.s3 import generate_profile_image_url #S3
+
 
 _socketio = None
 _user_sids = defaultdict(set)
@@ -60,6 +62,11 @@ def _serialize_message(message):
     created_at = message.get("created_at")
     if isinstance(created_at, datetime):
         message["created_at"] = created_at.isoformat(timespec="seconds")
+
+    # S3
+    message["sender_profile_image"] = (
+    generate_profile_image_url(message.get("sender_profile_image"))
+    )
 
     return message
 

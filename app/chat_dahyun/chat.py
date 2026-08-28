@@ -2,6 +2,7 @@ from flask import Blueprint, session
 
 from app.shared.database import get_db_connection
 from app.shared.decorators import login_required
+from app.shared.s3 import generate_profile_image_url # S3
 
 
 chat_bp = Blueprint("chat", __name__, url_prefix="/api/chat")
@@ -87,6 +88,13 @@ def get_chat_messages(chat_room_id):
             (chat_room_id,)
         )
         messages = cursor.fetchall()
+
+        # S3 이미지 확인
+        for message in messages:
+            message["sender_profile_image"] = (
+                generate_profile_image_url(message.get("sender_profile_image"))
+            )
+
     finally:
         cursor.close()
         connection.close()
@@ -122,6 +130,13 @@ def get_chat_room_members(chat_room_id):
             (chat_room_id,)
         )
         members = cursor.fetchall()
+
+        # S3 이미지
+        for member in members:
+            member["profile_image"] = (
+                generate_profile_image_url(member.get("profile_image"))
+            )
+
     finally:
         cursor.close()
         connection.close()

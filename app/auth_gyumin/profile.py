@@ -1,13 +1,20 @@
 import os
-
-from flask import Blueprint, session, request, send_from_directory, current_app
 from uuid import uuid4
+
+from flask import (Blueprint, current_app, request, send_from_directory, session,)
 
 from app.auth_gyumin.users import users_bp
 from app.shared.database import get_db_connection
 from app.shared.decorators import login_required
+from app.shared.s3 import (
+    generate_profile_image_url,
+    get_s3_bucket_name,
+    get_s3_client,
+)
+
 
 uploads_bp = Blueprint("uploads", __name__)
+
 
 # 프로필 이미지 등록 / 변경
 @users_bp.post("/me/profile-image")
@@ -15,7 +22,7 @@ uploads_bp = Blueprint("uploads", __name__)
 def upload_profile_image():
     user_id = session.get("user_id")
 
-    # multipart/form-data의 파일 가져오기
+    # multipart/form-data로 전달된 이미지 파일
     file = request.files.get("profile_image")
 
     if not file:
@@ -29,36 +36,62 @@ def upload_profile_image():
 
     extension = filename.rsplit(".", 1)[1].lower()
 
-    # 허용 확장자
-    if extension not in ("jpg", "jpeg", "png", "webp"):
+    # 허용할 확장자
+    if extension not in ("jpg", "jpeg", "png", "webp",):
         return {"message": "Invalid image file."}, 400
 
     # Content-Type 확인
-    if file.content_type not in ("image/jpeg", "image/png", "image/webp"):
+    if file.content_type not in ("image/jpeg", "image/png", "image/webp",):
         return {"message": "Invalid image content type."}, 400
 
-    # 파일 저장 폴더
-    profile_upload_folder = os.path.join(
-        current_app.root_path, "uploads", "profile"
+    s3 = get_s3_client()
+    bucket_name = get_s3_bucket_name()
+
+    # 같은 파일명이 충돌하지 않도록 UUID 사용
+    stored_filename = (f"{uuid4().hex}.{extension}")
+
+    # S3 내부 파일 경로
+    s3_key = (f"profile/{stored_filename}")
+
+    # S3에 이미지 업로드
+    s3.upload_fileobj(
+        file.stream,
+        bucket_name,
+        s3_key,
+        ExtraArgs={"ContentType": file.content_type}
     )
 
-    # 폴더가 없으면 생성
-    os.makedirs(profile_upload_folder, exist_ok=True)
-
-    # 원래 filename 대신 UUID 사용
-    stored_filename = f"{uuid4().hex}.{extension}"
-
-    save_path = os.path.join(profile_upload_folder, stored_filename)
-
-    file.save(save_path)
-
-    # DB에는 파일 경로 저장
-    profile_image_path = f"/uploads/profile/{stored_filename}"
-
     connection = get_db_connection()
-    cursor = connection.cursor()
+    cursor = connection.cursor(dictionary=True)
+
+    old_profile_image = None
 
     try:
+        # 기존 프로필 이미지 확인
+        cursor.execute(
+            """
+            SELECT profile_image
+            FROM users
+            WHERE user_id = %s
+            AND status != 'DELETED'
+            """,
+            (user_id,)
+        )
+
+        user = cursor.fetchone()
+
+        if not user:
+            # 유효한 사용자가 아니라면
+            # 방금 올린 S3 파일 제거
+            s3.delete_object(Bucket=bucket_name, Key=s3_key)
+
+            session.clear()
+
+            return {"message": "User not found."}, 401
+
+        old_profile_image = (user.get("profile_image"))
+
+        # DB에는 URL이 아니라 S3 key만 저장
         cursor.execute(
             """
             UPDATE users
@@ -66,7 +99,7 @@ def upload_profile_image():
             WHERE user_id = %s
             AND status != 'DELETED'
             """,
-            (profile_image_path, user_id)
+            (s3_key, user_id,)
         )
 
         connection.commit()
@@ -74,9 +107,9 @@ def upload_profile_image():
     except Exception:
         connection.rollback()
 
-        # DB 저장 실패하면 방금 저장한 파일 제거
-        if os.path.exists(save_path):
-            os.remove(save_path)
+        # DB 저장 실패 시
+        # 새로 업로드한 S3 파일 제거
+        s3.delete_object(Bucket=bucket_name, Key=s3_key)
 
         raise
 
@@ -84,16 +117,28 @@ def upload_profile_image():
         cursor.close()
         connection.close()
 
+    # 기존 프로필도 S3 파일이었다면 제거
+    if (
+        old_profile_image
+        and old_profile_image.startswith("profile/")
+        and old_profile_image != s3_key
+    ):
+        try:
+            s3.delete_object(Bucket=bucket_name, Key=old_profile_image)
+        except Exception:
+            # 새 프로필 저장 자체는 성공했으므로
+            # 기존 파일 삭제 실패로 요청 전체를 실패시키지 않음
+            pass
+
     return {
         "message": "Profile image updated successfully.",
-        "profile_image": profile_image_path
+        "profile_image": generate_profile_image_url(s3_key)
     }, 200
 
-# 프로필 이미지 파일 조회
+
+# 기존 로컬 이미지 호환용
 @uploads_bp.get("/uploads/profile/<filename>")
 def get_profile_image(filename):
-    profile_upload_folder = os.path.join(
-        current_app.root_path, "uploads", "profile"
-    )
+    profile_upload_folder = os.path.join(current_app.root_path, "uploads", "profile")
 
     return send_from_directory(profile_upload_folder, filename)

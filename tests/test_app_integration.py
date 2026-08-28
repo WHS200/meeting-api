@@ -6,7 +6,7 @@ from pathlib import Path
 class AppIntegrationTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        entrypoint = Path(__file__).resolve().parents[1] / "app.py"
+        entrypoint = Path(__file__).resolve().parents[1] / "server.py"
         namespace = runpy.run_path(str(entrypoint))
         cls.app = namespace["app"]
         cls.socketio = namespace["socketio"]
