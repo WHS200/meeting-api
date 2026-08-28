@@ -48,6 +48,7 @@
             <thead>
               <tr>
                 <th>닉네임</th>
+                <th>해당 종목 실력</th>
                 <th>상태</th>
                 <th>관리</th>
               </tr>
@@ -72,6 +73,32 @@
       </section>
       <div id="approvedSummary" class="muted" style="margin-top: 12px"></div>
     </main>
+    <dialog id="sportProfileDialog" class="profile-dialog">
+      <form id="sportProfileForm">
+        <h2>운동 프로필 등록</h2>
+        <p class="muted">
+          참가 신청 전에 해당 종목의 실력을 등록해 주세요.
+        </p>
+        <div class="field">
+          <label>종목</label>
+          <input id="sportProfileName" readonly />
+        </div>
+        <div class="field">
+          <label>실력</label>
+          <select name="skill_level" required>
+            <option value="BRONZE">입문</option>
+            <option value="SILVER">초급</option>
+            <option value="GOLD">중급</option>
+            <option value="MASTER">고급</option>
+          </select>
+        </div>
+        <div id="sportProfileStatus" class="status"></div>
+        <div class="form-actions">
+          <button id="sportProfileCancel" class="btn" type="button">취소</button>
+          <button class="btn blue" type="submit">등록하고 신청</button>
+        </div>
+      </form>
+    </dialog>
     <div id="toast" class="toast"></div>
     <script src="js/api.js"></script>
     <script src="js/common.js"></script>

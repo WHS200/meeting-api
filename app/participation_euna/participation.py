@@ -191,13 +191,17 @@ def get_pending_participants(meeting_id):
             SELECT
                 mp.user_id,
                 u.nickname,
-                mp.participation_status
+                mp.participation_status,
+                us.skill_level
             FROM meeting_participants mp
             JOIN users u ON mp.user_id = u.user_id
+            LEFT JOIN user_sports us
+                ON us.user_id = mp.user_id
+                AND us.sport_id = %s
             WHERE mp.meeting_id = %s
             AND mp.participation_status = 'PENDING'
             """,
-            (meeting_id,)
+            (meeting["sport_id"], meeting_id)
         )
 
         participants = cursor.fetchall()

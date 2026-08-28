@@ -4,6 +4,9 @@ let isHost = false;
 const content = document.getElementById("detailContent");
 const side = document.getElementById("detailSide");
 const hostPanel = document.getElementById("hostPanel");
+const sportProfileDialog = document.getElementById("sportProfileDialog");
+const sportProfileForm = document.getElementById("sportProfileForm");
+const sportProfileStatus = document.getElementById("sportProfileStatus");
 async function loadDetail() {
   if (!meetingId) {
     content.innerHTML =
@@ -21,7 +24,8 @@ async function loadDetail() {
   }
 }
 function renderDetail() {
-  content.innerHTML = `<div class="detail-title"><div><span class="badge">${escapeHtml(meeting.sport_name)}</span><h1>${escapeHtml(meeting.title)}</h1><span class="badge ${meetingStatusClass(meeting.status)}">${meetingStatusLabel(meeting.status)}</span></div></div><div class="info-grid"><div class="info-item"><small>날짜</small><strong>${formatMeetingDate(meeting.meeting_date)}</strong></div><div class="info-item"><small>시간</small><strong>${formatMeetingTime(meeting.meeting_time)}</strong></div><div class="info-item"><small>장소</small><strong>${escapeHtml(meeting.location)}</strong></div><div class="info-item"><small>정원</small><strong>${meeting.max_participants}명 (모임장 포함)</strong></div><div class="info-item"><small>승인 방식</small><strong>${approvalTypeLabel(meeting.approval_type)}</strong></div><div class="info-item"><small>상태</small><strong>${meetingStatusLabel(meeting.status)}</strong></div></div><div class="description">${escapeHtml(meeting.description)}</div><div class="host-box"><div class="avatar">${escapeHtml((meeting.host_name || "?").slice(0, 1))}</div><div class="grow"><strong>${escapeHtml(meeting.host_name)}</strong><div class="subtle">모임장</div></div></div>`;
+  const requiredSkill = meetingSkillLevelLabel(meeting.required_skill_level);
+  content.innerHTML = `<div class="detail-title"><div><span class="badge">${escapeHtml(meeting.sport_name)}</span><h1>${escapeHtml(meeting.title)}</h1><span class="badge ${meetingStatusClass(meeting.status)}">${meetingStatusLabel(meeting.status)}</span></div></div><div class="info-grid"><div class="info-item"><small>날짜</small><strong>${formatMeetingDate(meeting.meeting_date)}</strong></div><div class="info-item"><small>시간</small><strong>${formatMeetingTime(meeting.meeting_time)}</strong></div><div class="info-item"><small>장소</small><strong>${escapeHtml(meeting.location)}</strong></div><div class="info-item"><small>정원</small><strong>${meeting.max_participants}명 (모임장 포함)</strong></div><div class="info-item"><small>실력 조건</small><strong>${escapeHtml(requiredSkill)}</strong></div><div class="info-item"><small>승인 방식</small><strong>${approvalTypeLabel(meeting.approval_type)}</strong></div><div class="info-item"><small>상태</small><strong>${meetingStatusLabel(meeting.status)}</strong></div></div><div class="description">${escapeHtml(meeting.description)}</div><div class="host-box"><div class="avatar">${escapeHtml((meeting.host_name || "?").slice(0, 1))}</div><div class="grow"><strong>${escapeHtml(meeting.host_name)}</strong><div class="subtle">모임장</div></div></div>`;
 }
 function renderGuestActions() {
   side.innerHTML =
@@ -55,13 +59,28 @@ function renderHostActions() {
 }
 async function joinMeeting() {
   try {
-    const d = await apiFetch(`/api/meetings/${meetingId}/participants`, {
-      method: "POST",
-    });
-    showToast(d.message);
+    const d = await apiFetch("/api/users/me/sports");
+    const currentSport = (d.sports || []).find(
+      (sport) => Number(sport.sport_id) === Number(meeting.sport_id),
+    );
+    if (!currentSport?.skill_level) {
+      sportProfileForm.reset();
+      sportProfileForm.dataset.existingSport = String(Boolean(currentSport));
+      document.getElementById("sportProfileName").value = meeting.sport_name;
+      setStatus(sportProfileStatus, "");
+      sportProfileDialog.showModal();
+      return;
+    }
+    await submitParticipation();
   } catch (e) {
     showToast(e.message);
   }
+}
+async function submitParticipation() {
+  const d = await apiFetch(`/api/meetings/${meetingId}/participants`, {
+    method: "POST",
+  });
+  showToast(d.message);
 }
 async function cancelMeeting() {
   if (!confirm("참가 신청/참여를 취소할까요?")) return;
@@ -108,10 +127,10 @@ async function loadHostManagement(pending) {
     ? pending
         .map(
           (p) =>
-            `<tr><td>${escapeHtml(p.nickname)}</td><td>승인 대기</td><td><div class="small-gap"><button class="btn sm blue" data-approve="${p.user_id}">승인</button><button class="btn sm danger" data-reject="${p.user_id}">거절</button><a class="btn sm" href="user-profile.html?id=${p.user_id}">프로필</a></div></td></tr>`,
+            `<tr><td>${escapeHtml(p.nickname)}</td><td>${escapeHtml(p.skill_level ? skillLevelLabel(p.skill_level) : "미등록")}</td><td>승인 대기</td><td><div class="small-gap"><button class="btn sm blue" data-approve="${p.user_id}">승인</button><button class="btn sm danger" data-reject="${p.user_id}">거절</button><a class="btn sm" href="user-profile.html?id=${p.user_id}">프로필</a></div></td></tr>`,
         )
         .join("")
-    : '<tr><td colspan="3">승인 대기 신청이 없습니다.</td></tr>';
+    : '<tr><td colspan="4">승인 대기 신청이 없습니다.</td></tr>';
   pendingBody
     .querySelectorAll("[data-approve]")
     .forEach((b) => (b.onclick = () => approve(Number(b.dataset.approve))));
@@ -195,4 +214,32 @@ async function attendance(id, value) {
     showToast(e.message);
   }
 }
+sportProfileForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const submitButton = e.currentTarget.querySelector("[type=submit]");
+  submitButton.disabled = true;
+  setStatus(sportProfileStatus, "등록 중...");
+  try {
+    const existingSport = e.currentTarget.dataset.existingSport === "true";
+    const url = existingSport
+      ? `/api/users/me/sports/${meeting.sport_id}`
+      : "/api/users/me/sports";
+    await apiFetch(url, {
+      method: existingSport ? "PATCH" : "POST",
+      body: JSON.stringify({
+        ...(existingSport ? {} : { sport_id: Number(meeting.sport_id) }),
+        skill_level: e.currentTarget.skill_level.value,
+      }),
+    });
+    sportProfileDialog.close();
+    await submitParticipation();
+  } catch (e) {
+    if (sportProfileDialog.open) setStatus(sportProfileStatus, e.message, "error");
+    else showToast(e.message);
+  } finally {
+    submitButton.disabled = false;
+  }
+});
+document.getElementById("sportProfileCancel").onclick = () =>
+  sportProfileDialog.close();
 loadDetail();

@@ -58,7 +58,7 @@ function renderMySports() {
     ? mySports
         .map(
           (s) =>
-            `<div class="sport-item"><div><strong>${escapeHtml(s.sport_name)}</strong><small>현재 실력 ${escapeHtml(s.skill_level)}</small></div><div class="actions"><select data-level="${s.sport_id}">${SKILL_LEVELS.map((v) => `<option value="${v}" ${v === s.skill_level ? "selected" : ""}>${v}</option>`).join("")}</select><button class="btn sm" data-update-sport="${s.sport_id}">수정</button><button class="btn sm danger" data-delete-sport="${s.sport_id}" data-name="${escapeHtml(s.sport_name)}">삭제</button></div></div>`,
+            `<div class="sport-item"><div><strong>${escapeHtml(s.sport_name)}</strong><small>현재 실력 ${escapeHtml(skillLevelLabel(s.skill_level))}</small></div><div class="actions"><select data-level="${s.sport_id}">${SKILL_LEVELS.map((v) => `<option value="${v}" ${v === s.skill_level ? "selected" : ""}>${escapeHtml(skillLevelLabel(v))}</option>`).join("")}</select><button class="btn sm" data-update-sport="${s.sport_id}">수정</button><button class="btn sm danger" data-delete-sport="${s.sport_id}" data-name="${escapeHtml(s.sport_name)}">삭제</button></div></div>`,
         )
         .join("")
     : '<div class="empty">등록된 운동 종목이 없습니다.</div>';
@@ -169,13 +169,6 @@ document
       showToast(err.message);
     }
   });
-document.getElementById("lookupForm").addEventListener("submit", (e) => {
-  e.preventDefault();
-  const id = Number(e.currentTarget.user_id.value);
-  if (!Number.isInteger(id) || id < 1)
-    return showToast("올바른 사용자 번호를 입력하세요.");
-  location.href = `/static/user-profile.html?id=${id}`;
-});
 document.getElementById("deleteButton").addEventListener("click", async () => {
   if (!confirm("계정을 삭제할까요?")) return;
   try {

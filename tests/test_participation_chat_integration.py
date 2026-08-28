@@ -74,6 +74,7 @@ class ParticipationChatIntegrationTest(unittest.TestCase):
         return {
             "meeting_id": 10,
             "host_id": 1,
+            "sport_id": 3,
             "approval_type": approval_type,
             "status": status,
             "max_participants": maximum,
@@ -115,6 +116,20 @@ class ParticipationChatIntegrationTest(unittest.TestCase):
         return "\n".join(
             sql for sql, _ in cursor.executed
         )
+
+    def test_pending_participants_include_meeting_sport_skill(self):
+        response, _, cursor = self._request(
+            "GET",
+            "/api/meetings/10/participants",
+            user_id=1,
+            one_values=[self._meeting()],
+        )
+
+        self.assertEqual(response.status_code, 200)
+        participant_sql, participant_params = cursor.executed[1]
+        self.assertIn("LEFT JOIN user_sports", participant_sql)
+        self.assertIn("us.skill_level", participant_sql)
+        self.assertEqual(participant_params, (3, 10))
 
     def test_instant_join_approves_and_adds_chat_member(self):
         response, connection, cursor = self._request(

@@ -10,6 +10,7 @@ meetings_bp = Blueprint("meetings", __name__, url_prefix="/api/meetings")
 
 MEETING_STATUSES = {"RECRUITING", "CLOSED", "COMPLETED", "CANCELED"}
 APPROVAL_TYPES = {"INSTANT", "APPROVAL"}
+SKILL_LEVELS = {"BRONZE", "SILVER", "GOLD", "MASTER"}
 MEETING_CHAT_ROOM_TYPE = "MEETING"
 REQUIRED_FIELDS = (
     "title",
@@ -42,6 +43,7 @@ def _meeting_select_sql():
             m.meeting_time,
             m.location,
             m.max_participants,
+            m.required_skill_level,
             m.approval_type,
             m.status,
             m.created_at,
@@ -115,6 +117,13 @@ def _validate_meeting(data, require_status=False):
 
     if data["approval_type"] not in APPROVAL_TYPES:
         return {"message": "approval_type must be INSTANT or APPROVAL."}, 400
+    required_skill_level = data.get("required_skill_level")
+    if required_skill_level is not None and required_skill_level not in SKILL_LEVELS:
+        return {
+            "message": (
+                "required_skill_level must be null, BRONZE, SILVER, GOLD, or MASTER."
+            )
+        }, 400
     if require_status and data["status"] not in MEETING_STATUSES:
         return {"message": "Invalid meeting status."}, 400
 
@@ -210,8 +219,9 @@ def create_meeting():
             """
             INSERT INTO meetings (
                 host_id, sport_id, title, description, meeting_date, meeting_time,
-                location, max_participants, approval_type, status
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'RECRUITING')
+                location, max_participants, required_skill_level, approval_type,
+                status
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'RECRUITING')
             """,
             (
                 session["user_id"],
@@ -222,6 +232,7 @@ def create_meeting():
                 data["meeting_time"],
                 data["location"].strip(),
                 data["max_participants"],
+                data.get("required_skill_level"),
                 data["approval_type"],
             ),
         )
@@ -300,6 +311,7 @@ def update_meeting(meeting_id):
                 meeting_time = %s,
                 location = %s,
                 max_participants = %s,
+                required_skill_level = %s,
                 approval_type = %s,
                 status = %s
             WHERE meeting_id = %s
@@ -312,6 +324,7 @@ def update_meeting(meeting_id):
                 data["meeting_time"],
                 data["location"].strip(),
                 data["max_participants"],
+                data.get("required_skill_level"),
                 data["approval_type"],
                 data["status"],
                 meeting_id,

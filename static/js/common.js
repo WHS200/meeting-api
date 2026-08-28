@@ -85,6 +85,21 @@ function meetingStatusClass(status) {
 function approvalTypeLabel(type) {
   return type === "INSTANT" ? "즉시 승인" : "모임장 승인";
 }
+function skillLevelLabel(level) {
+  return (
+    {
+      BRONZE: "입문",
+      SILVER: "초급",
+      GOLD: "중급",
+      MASTER: "고급",
+    }[level] ||
+    level ||
+    "-"
+  );
+}
+function meetingSkillLevelLabel(level) {
+  return level ? skillLevelLabel(level) : "상관없음";
+}
 function sportVisual(name) {
   const normalizedName = String(name || "").trim();
   const visuals = {

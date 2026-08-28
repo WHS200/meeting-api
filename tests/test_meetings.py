@@ -81,6 +81,7 @@ class MeetingsApiTest(unittest.TestCase):
             "meeting_time": "19:30",
             "location": "여의도",
             "max_participants": 4,
+            "required_skill_level": "SILVER",
             "approval_type": "APPROVAL",
         }
 
@@ -121,6 +122,13 @@ class MeetingsApiTest(unittest.TestCase):
         )
         self.assertEqual(chat_room_params, ("MEETING", 41))
         self.assertEqual(member_params, (91, 7))
+        meeting_sql, meeting_params = next(
+            (sql, params)
+            for sql, params in cursor.executed
+            if "INSERT INTO meetings" in sql
+        )
+        self.assertIn("required_skill_level", meeting_sql)
+        self.assertIn("SILVER", meeting_params)
 
     def test_create_meeting_rolls_back_if_chat_member_insert_fails(self):
         self._login(user_id=7)
@@ -207,6 +215,7 @@ class MeetingsApiTest(unittest.TestCase):
                 "meeting_time": "25:30",
                 "location": "여의도",
                 "max_participants": 10,
+                "required_skill_level": "SILVER",
                 "approval_type": "APPROVAL",
             },
         )
@@ -230,10 +239,42 @@ class MeetingsApiTest(unittest.TestCase):
                 "meeting_time": "19:30",
                 "location": "여의도",
                 "max_participants": 10,
+                "required_skill_level": "SILVER",
                 "approval_type": "APPROVAL",
             },
         )
         self.assertEqual(response.status_code, 400)
+
+    def test_create_validates_required_skill_level(self):
+        self._login()
+        payload = self._valid_meeting_payload()
+        payload["required_skill_level"] = "EXPERT"
+
+        response = self.client.post("/api/meetings", json=payload)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("required_skill_level", response.get_json()["message"])
+
+    def test_create_allows_null_required_skill_level(self):
+        self._login()
+        payload = self._valid_meeting_payload()
+        payload["required_skill_level"] = None
+        cursor = MeetingCreationCursor()
+        connection = FakeConnection(cursor)
+
+        with patch(
+            "app.meetings_gyudong.meetings.get_db_connection",
+            return_value=connection,
+        ):
+            response = self.client.post("/api/meetings", json=payload)
+
+        self.assertEqual(response.status_code, 201)
+        meeting_params = next(
+            params
+            for sql, params in cursor.executed
+            if "INSERT INTO meetings" in sql
+        )
+        self.assertIsNone(meeting_params[-2])
 
 
 if __name__ == "__main__":

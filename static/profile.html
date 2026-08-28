@@ -84,6 +84,10 @@
           </div>
           <div class="panel">
             <h2>운동 프로필</h2>
+            <p class="muted skill-level-guide">
+              입문: 처음 배우는 단계 · 초급: 기본기를 익히는 단계 · 중급:
+              안정적으로 경기하는 단계 · 고급: 숙련된 경기 운영이 가능한 단계
+            </p>
             <form id="sportForm" class="inline-form">
               <div class="field">
                 <label>종목</label
@@ -92,10 +96,10 @@
               <div class="field">
                 <label>실력</label
                 ><select name="skill_level">
-                  <option>BRONZE</option>
-                  <option>SILVER</option>
-                  <option>GOLD</option>
-                  <option>MASTER</option>
+                  <option value="BRONZE">입문</option>
+                  <option value="SILVER">초급</option>
+                  <option value="GOLD">중급</option>
+                  <option value="MASTER">고급</option>
                 </select>
               </div>
               <button class="btn blue">종목 추가</button>
@@ -104,17 +108,6 @@
             <div id="sportList" class="sport-list">
               <div class="empty">불러오는 중...</div>
             </div>
-          </div>
-          <div class="panel">
-            <h2>상대 프로필 조회</h2>
-            <form id="lookupForm" class="inline-form">
-              <div class="field">
-                <label>사용자 번호</label
-                ><input name="user_id" type="number" min="1" required />
-              </div>
-              <div></div>
-              <button class="btn">조회</button>
-            </form>
           </div>
           <div class="panel">
             <h2>비밀번호 변경</h2>

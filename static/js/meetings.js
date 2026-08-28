@@ -53,7 +53,7 @@ function renderMeetings(items) {
   meetingList.innerHTML = items
     .map((m) => {
       const sport = sportVisual(m.sport_name);
-      return `<a class="meeting-card" href="detail.html?id=${m.meeting_id}"><div class="thumb sport-${sport.theme}" aria-hidden="true">${sport.icon}</div><div><span class="badge">${escapeHtml(m.sport_name)}</span><h3>${escapeHtml(m.title)}</h3><div class="meta"><span>◷ ${formatMeetingDate(m.meeting_date)} · ${formatMeetingTime(m.meeting_time)}</span><span>⌖ ${escapeHtml(m.location)}</span></div><div class="meta"><span>모임장 ${escapeHtml(m.host_name)}</span><span>정원 ${m.max_participants}명</span><span>${approvalTypeLabel(m.approval_type)}</span></div></div><div class="meeting-side"><span class="badge ${meetingStatusClass(m.status)}">${meetingStatusLabel(m.status)}</span></div></a>`;
+      return `<a class="meeting-card" href="detail.html?id=${m.meeting_id}"><div class="thumb sport-${sport.theme}" aria-hidden="true">${sport.icon}</div><div><span class="badge">${escapeHtml(m.sport_name)}</span><h3>${escapeHtml(m.title)}</h3><div class="meta"><span>◷ ${formatMeetingDate(m.meeting_date)} · ${formatMeetingTime(m.meeting_time)}</span><span>⌖ ${escapeHtml(m.location)}</span></div><div class="meta"><span>모임장 ${escapeHtml(m.host_name)}</span><span>정원 ${m.max_participants}명</span><span>실력 ${escapeHtml(meetingSkillLevelLabel(m.required_skill_level))}</span><span>${approvalTypeLabel(m.approval_type)}</span></div></div><div class="meeting-side"><span class="badge ${meetingStatusClass(m.status)}">${meetingStatusLabel(m.status)}</span></div></a>`;
     })
     .join("");
 }

@@ -25,6 +25,7 @@ async function loadForEdit() {
   form.meeting_time.value = formatMeetingTime(m.meeting_time);
   form.location.value = m.location;
   form.max_participants.value = m.max_participants;
+  form.required_skill_level.value = m.required_skill_level || "";
   form.approval_type.value = m.approval_type;
   form.status.value = m.status;
   document.querySelector("[data-form-title]").textContent = "모임 수정";
@@ -42,6 +43,7 @@ form.addEventListener("submit", async (e) => {
     meeting_time: form.meeting_time.value,
     location: form.location.value,
     max_participants: Number(form.max_participants.value),
+    required_skill_level: form.required_skill_level.value || null,
     approval_type: form.approval_type.value,
   };
   if (editId) body.status = form.status.value;

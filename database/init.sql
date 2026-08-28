@@ -103,6 +103,13 @@ CREATE TABLE meetings (
 
     max_participants INT NOT NULL,
 
+    required_skill_level ENUM(
+        'BRONZE',
+        'SILVER',
+        'GOLD',
+        'MASTER'
+    ) DEFAULT NULL,
+
     approval_type ENUM(
         'INSTANT',
         'APPROVAL'

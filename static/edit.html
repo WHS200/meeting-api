@@ -49,6 +49,19 @@
                 ><select name="sport_id" required></select>
               </div>
               <div class="field">
+                <label>모임 실력 조건</label
+                ><select name="required_skill_level">
+                  <option value="">상관없음</option>
+                  <option value="BRONZE">입문</option>
+                  <option value="SILVER">초급</option>
+                  <option value="GOLD">중급</option>
+                  <option value="MASTER">고급</option>
+                </select>
+              </div>
+              <div class="field full meeting-skill-hint">
+                <span class="hint">실력 조건은 참가 승인 시 참고하는 안내 조건입니다.</span>
+              </div>
+              <div class="field">
                 <label>승인 방식</label
                 ><select name="approval_type">
                   <option value="APPROVAL">모임장 승인</option>

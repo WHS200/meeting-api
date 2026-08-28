@@ -303,6 +303,9 @@ button {
 .field.full {
   grid-column: 1/-1;
 }
+.meeting-skill-hint {
+  margin-top: -8px;
+}
 .form-card {
   padding: 24px;
 }
@@ -761,6 +764,10 @@ button {
   display: grid;
   gap: 8px;
 }
+.skill-level-guide {
+  margin: -6px 0 14px;
+  line-height: 1.6;
+}
 .sport-item {
   border: 1px solid var(--line);
   border-radius: 9px;
@@ -844,6 +851,27 @@ button {
 }
 .status.success {
   color: var(--green);
+}
+.profile-dialog {
+  width: min(420px, calc(100% - 32px));
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 24px;
+  color: var(--text);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.2);
+}
+.profile-dialog::backdrop {
+  background: rgba(15, 23, 42, 0.45);
+}
+.profile-dialog h2 {
+  margin: 0 0 8px;
+}
+.profile-dialog > form {
+  display: grid;
+  gap: 14px;
+}
+.profile-dialog .form-actions {
+  margin-top: 2px;
 }
 .chat-layout {
   display: grid;
