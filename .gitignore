@@ -4,6 +4,7 @@ __pycache__/
 .venv/
 venv/
 .env
+uploads/
 
 # Local ChatGPT project metadata and synced references
 AGENTS.md
