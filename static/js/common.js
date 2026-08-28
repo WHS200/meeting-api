@@ -118,7 +118,17 @@ function sportVisual(name) {
 }
 function formatMeetingDate(value) {
   if (!value) return "-";
-  return String(value).slice(0, 10);
+  const text = String(value).trim();
+  const isoDate = text.match(/^\d{4}-\d{2}-\d{2}/)?.[0];
+  if (isoDate) return isoDate;
+
+  const date = new Date(text);
+  if (Number.isNaN(date.getTime())) return text;
+
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 function formatMeetingTime(value) {
   if (!value) return "-";
