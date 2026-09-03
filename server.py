@@ -1,7 +1,7 @@
 import os
 
 from dotenv import load_dotenv
-from flask import Flask
+from flask import Flask, redirect
 from flask_socketio import SocketIO
 
 from app.auth_gyumin.auth import auth_bp
@@ -35,9 +35,7 @@ register_socket_events(socketio)
 
 @app.get("/")
 def home():
-    return {
-        "message": "meeting-api server is running"
-    }, 200
+    return redirect("/static/index.html") # 사이트 들어가자마자 바로 /index.html 보이게
 
 
 if __name__ == "__main__":
