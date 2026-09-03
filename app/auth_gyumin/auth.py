@@ -47,6 +47,7 @@ def signup():
     # 날짜 형식 확인
     try:
         datetime.strptime(birth_date, "%Y-%m-%d")
+        # 문자열을 지정한 날짜 형식으로 변환
     except ValueError:
         return {"message": "birth date type should be YYYY-MM-DD."}, 400
     # 성별 입력 확인

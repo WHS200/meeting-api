@@ -40,7 +40,7 @@ def upload_profile_image():
     if extension not in ("jpg", "jpeg", "png", "webp",):
         return {"message": "Invalid image file."}, 400
 
-    # Content-Type 확인
+    # MIME Content-Type 확인
     if file.content_type not in ("image/jpeg", "image/png", "image/webp",):
         return {"message": "Invalid image content type."}, 400
 
@@ -55,10 +55,10 @@ def upload_profile_image():
 
     # S3에 이미지 업로드
     s3.upload_fileobj(
-        file.stream,
-        bucket_name,
-        s3_key,
-        ExtraArgs={"ContentType": file.content_type}
+        file.stream, # 사용자가 업로드한 실제 이미지 데이터
+        bucket_name, # yanawa-profile
+        s3_key, # profile/랜덤UUID.png
+        ExtraArgs={"ContentType": file.content_type} # 이 파일이 image/png 같은 이미지라는 메타 정보
     )
 
     connection = get_db_connection()

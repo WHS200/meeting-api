@@ -3,7 +3,7 @@ if (page === "login") {
   const form = document.getElementById("loginForm"),
     status = document.getElementById("formStatus");
   form.addEventListener("submit", async (event) => {
-    event.preventDefault();
+    event.preventDefault(); // 기본 HTML form 전송 X => 작성한 JS에서 직접 API 요청 
     setStatus(status, "로그인 중...");
     try {
       await apiFetch("/api/auth/login", {

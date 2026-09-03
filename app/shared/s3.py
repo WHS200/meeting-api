@@ -7,8 +7,9 @@ S3_REGION = "ap-northeast-2"
 
 # Python에서 S3를 사용할 객체 생성
 def get_s3_client():
+    # boto3.client("S3") => S3 API를 호출할 수 있는 객체 하나 생성
     return boto3.client(
-        "s3",
+        "s3", # EC2에 IAM Role을 붙여놨기 때문에 boto3.client("s3")만으로 인증 가능
         region_name=S3_REGION
     )
 
