@@ -1,3 +1,7 @@
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
+
 from database import migrate
 from mysql_support import DB_NAME, MySQLTestCase, connect, execute_script
 
@@ -41,6 +45,22 @@ class MigrationTest(MySQLTestCase):
         migrate.prepare(connection)
         migrate.apply(connection)
         self.assertTrue(all(state == "applied" for _, state in migrate.status(connection)))
+        connection.close()
+
+    def test_init_baseline_leaves_future_migration_pending(self):
+        connection = connect()
+        cursor = connection.cursor()
+        cursor.execute("INSERT INTO schema_migrations (version, checksum) VALUES (%s, %s)",
+                       ("__INIT_SQL_BASELINE__:010_sports_management.sql", "0" * 64))
+        connection.commit()
+        cursor.close()
+        with TemporaryDirectory() as directory:
+            future = Path(directory) / "011_future.sql"
+            future.write_text("SELECT 1;", encoding="utf-8")
+            with patch.object(migrate, "migrations", return_value=migrate.migrations() + [future]):
+                states = dict((path.name, state) for path, state in migrate.status(connection))
+        self.assertEqual(states["010_sports_management.sql"], "applied")
+        self.assertEqual(states["011_future.sql"], "pending")
         connection.close()
 
     def test_partial_sport_proposals_does_not_baseline_all(self):

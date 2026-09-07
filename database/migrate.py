@@ -15,7 +15,9 @@ from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATIONS = Path(__file__).resolve().parent / "migrations"
-INIT_SQL_MARKER = "__INIT_SQL_BASELINE__"
+INIT_SQL_MARKER_PREFIX = "__INIT_SQL_BASELINE__:"
+LEGACY_INIT_SQL_MARKER = "__INIT_SQL_BASELINE__"
+INIT_SQL_BASELINE_VERSION = "010_sports_management.sql"
 
 
 def connect():
@@ -47,9 +49,14 @@ def prepare(connection):
         applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
     )""")
     # Only an explicit init.sql marker may baseline the complete migration set.
-    cursor.execute("SELECT 1 FROM schema_migrations WHERE version = %s", (INIT_SQL_MARKER,))
-    if cursor.fetchone():
+    cursor.execute("SELECT version FROM schema_migrations WHERE version LIKE %s OR version = %s",
+                   (f"{INIT_SQL_MARKER_PREFIX}%", LEGACY_INIT_SQL_MARKER))
+    marker = cursor.fetchone()
+    if marker:
+        baseline_version = marker["version"].split(":", 1)[1] if marker["version"].startswith(INIT_SQL_MARKER_PREFIX) else INIT_SQL_BASELINE_VERSION
         for path in migrations():
+            if path.name > baseline_version:
+                continue
             cursor.execute("""INSERT IGNORE INTO schema_migrations (version, checksum)
                 VALUES (%s, %s)""", (path.name, digest(path)))
     else:
@@ -90,8 +97,10 @@ def status(connection):
     if has_table:
         cursor.execute("SELECT version, checksum FROM schema_migrations")
         applied = {row["version"]: row["checksum"] for row in cursor.fetchall()}
-        if INIT_SQL_MARKER in applied:
-            applied.update({path.name: digest(path) for path in migrations()})
+        marker = next((version for version in applied if version.startswith(INIT_SQL_MARKER_PREFIX)), None)
+        baseline_version = marker.split(":", 1)[1] if marker else (INIT_SQL_BASELINE_VERSION if LEGACY_INIT_SQL_MARKER in applied else None)
+        if baseline_version:
+            applied.update({path.name: digest(path) for path in migrations() if path.name <= baseline_version})
     else:
         applied = {}
     cursor.close()

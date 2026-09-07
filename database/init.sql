@@ -465,4 +465,4 @@ CREATE TABLE schema_migrations (
     applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 INSERT INTO schema_migrations (version, checksum)
-VALUES ('__INIT_SQL_BASELINE__', REPEAT('0', 64));
+VALUES ('__INIT_SQL_BASELINE__:010_sports_management.sql', REPEAT('0', 64));
