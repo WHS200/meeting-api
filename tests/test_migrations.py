@@ -1,5 +1,3 @@
-import subprocess
-
 from database import migrate
 from mysql_support import DB_NAME, MySQLTestCase, connect, execute_script
 
@@ -14,9 +12,7 @@ class MigrationTest(MySQLTestCase):
         cursor.close()
         root.close()
         connection = mysql_connection(migration_db)
-        baseline = subprocess.check_output(
-            ["git", "show", "HEAD:database/init.sql"], cwd=migrate.ROOT
-        ).decode("utf-8")
+        baseline = (migrate.ROOT / "tests" / "fixtures" / "baseline_init.sql").read_text(encoding="utf-8")
         execute_script(connection, baseline)
         migrate.apply(connection)
 

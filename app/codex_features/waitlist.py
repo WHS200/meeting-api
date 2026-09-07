@@ -30,12 +30,12 @@ def validate_duration(data):
 
 
 def has_overlap(cursor, user_id, meeting):
-    cursor.execute("""SELECT m.meeting_id FROM meeting_participants mp
-        JOIN meetings m ON m.meeting_id = mp.meeting_id
-        WHERE mp.user_id = %s AND mp.participation_status = 'APPROVED'
+    cursor.execute("""SELECT m.meeting_id FROM meetings m
+        LEFT JOIN meeting_participants mp ON mp.meeting_id = m.meeting_id
+        WHERE (m.host_id = %s OR (mp.user_id = %s AND mp.participation_status = 'APPROVED'))
         AND m.status != 'CANCELED' AND m.meeting_id != %s
         AND m.meeting_date = %s AND m.meeting_time < %s AND %s < m.end_time
-        LIMIT 1""", (user_id, meeting.get("meeting_id", 0), meeting["meeting_date"], meeting["end_time"], meeting["meeting_time"]))
+        LIMIT 1""", (user_id, user_id, meeting.get("meeting_id", 0), meeting["meeting_date"], meeting["end_time"], meeting["meeting_time"]))
     return cursor.fetchone() is not None
 
 
@@ -47,14 +47,18 @@ def ensure_no_overlap(cursor, user_id, meeting):
 
 
 def validate_meeting_update(cursor, meeting_id, data):
+    cursor.execute("SELECT host_id FROM meetings WHERE meeting_id = %s", (meeting_id,))
+    host = cursor.fetchone()
+    user_ids = {host["host_id"]} if host else set()
     cursor.execute("SELECT user_id FROM meeting_participants WHERE meeting_id = %s AND participation_status = 'APPROVED'", (meeting_id,))
     members = cursor.fetchall()
     if len(members) + 1 > data["max_participants"]:
         raise APIError("Capacity cannot be smaller than current participants including host.", 409)
     if data["status"] != "CANCELED":
         proposed = dict(data, meeting_id=meeting_id)
-        for member in members:
-            if has_overlap(cursor, member["user_id"], proposed):
+        user_ids.update(member["user_id"] for member in members)
+        for user_id in user_ids:
+            if has_overlap(cursor, user_id, proposed):
                 raise APIError("The new time conflicts with an approved participant's schedule.", 409)
 
 

@@ -88,7 +88,7 @@ def join_meeting(meeting_id):
                 """
                 INSERT INTO meeting_participants
                     (meeting_id, user_id, participation_status, approved_at)
-                VALUES (%s, %s, %s, NOW())
+                VALUES (%s, %s, %s, UTC_TIMESTAMP())
                 """,
                 (meeting_id, user_id, participation_status)
             )
@@ -161,7 +161,7 @@ def cancel_participation(meeting_id):
             """
             UPDATE meeting_participants
             SET participation_status = 'CANCELED',
-                canceled_at = NOW()
+                canceled_at = UTC_TIMESTAMP()
             WHERE meeting_id = %s
             AND user_id = %s
             AND participation_status IN ('PENDING', 'APPROVED', 'WAITING')

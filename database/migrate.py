@@ -45,14 +45,22 @@ def prepare(connection):
         checksum CHAR(64) NOT NULL,
         applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
     )""")
-    # main already contains the 001 column. Baseline it for existing installations.
-    cursor.execute("""SELECT 1 FROM information_schema.columns
-        WHERE table_schema = DATABASE() AND table_name = 'meetings'
-        AND column_name = 'required_skill_level'""")
+    # Baseline databases created by the current init.sql; do not replay CREATE/ALTER statements.
+    cursor.execute("""SELECT 1 FROM information_schema.tables
+        WHERE table_schema = DATABASE() AND table_name = 'sport_proposals'""")
     if cursor.fetchone():
-        first = migrations()[0]
-        cursor.execute("""INSERT IGNORE INTO schema_migrations (version, checksum)
-            VALUES (%s, %s)""", (first.name, digest(first)))
+        for path in migrations():
+            cursor.execute("""INSERT IGNORE INTO schema_migrations (version, checksum)
+                VALUES (%s, %s)""", (path.name, digest(path)))
+    else:
+        # Older installations already contain the 001 column. Baseline only that migration.
+        cursor.execute("""SELECT 1 FROM information_schema.columns
+            WHERE table_schema = DATABASE() AND table_name = 'meetings'
+            AND column_name = 'required_skill_level'""")
+        if cursor.fetchone():
+            first = migrations()[0]
+            cursor.execute("""INSERT IGNORE INTO schema_migrations (version, checksum)
+                VALUES (%s, %s)""", (first.name, digest(first)))
     connection.commit()
     cursor.close()
 
@@ -75,10 +83,15 @@ def preflight(cursor, filename):
 
 
 def status(connection):
-    prepare(connection)
     cursor = connection.cursor(dictionary=True)
-    cursor.execute("SELECT version, checksum FROM schema_migrations")
-    applied = {row["version"]: row["checksum"] for row in cursor.fetchall()}
+    cursor.execute("""SELECT 1 FROM information_schema.tables
+        WHERE table_schema = DATABASE() AND table_name = 'schema_migrations'""")
+    has_table = cursor.fetchone() is not None
+    if has_table:
+        cursor.execute("SELECT version, checksum FROM schema_migrations")
+        applied = {row["version"]: row["checksum"] for row in cursor.fetchall()}
+    else:
+        applied = {}
     cursor.close()
     result = []
     for path in migrations():

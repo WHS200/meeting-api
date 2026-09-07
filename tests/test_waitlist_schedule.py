@@ -58,6 +58,14 @@ class WaitlistScheduleTest(MySQLTestCase):
             responses=list(pool.map(lambda meeting:self.join(meeting,2),[first,second]))
         self.assertEqual(sorted(r.status_code for r in responses),[201,409])
 
+    def test_concurrent_host_meeting_creation_cannot_overlap(self):
+        payload={'sport_id':1,'title':'Host schedule','description':'Exercise','meeting_date':'2027-01-02',
+                 'meeting_time':'10:00','end_time':'12:00','location':'Seoul','max_participants':3,
+                 'approval_type':'INSTANT','status':'RECRUITING'}
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            responses=list(pool.map(lambda _: self.client.post('/api/meetings',json=payload),[1,2]))
+        self.assertEqual(sorted(r.status_code for r in responses),[201,409])
+
     def test_duration_capacity_reduction_and_edit_conflict(self):
         first=self.meeting(maximum=3)
         second=self.meeting(host=3,start='12:00',end='13:00')

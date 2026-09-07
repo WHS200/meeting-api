@@ -5,7 +5,7 @@ from flask import Blueprint, request, session
 from app.shared.database import get_db_connection
 from app.shared.decorators import login_required
 from app.codex_features.notifications import notify_meeting_changes
-from app.codex_features.waitlist import lock_schedule, validate_duration, validate_meeting_update, promote_waiters
+from app.codex_features.waitlist import lock_schedule, validate_duration, validate_meeting_update, promote_waiters, ensure_no_overlap
 
 
 meetings_bp = Blueprint("meetings", __name__, url_prefix="/api/meetings")
@@ -223,6 +223,7 @@ def create_meeting():
     cursor = connection.cursor(dictionary=True)
     try:
         lock_schedule(cursor)
+        ensure_no_overlap(cursor, session["user_id"], data)
         cursor.execute("SELECT sport_id FROM sports WHERE sport_id = %s AND status = 'ACTIVE'", (data["sport_id"],))
         if cursor.fetchone() is None:
             return {"message": "Sport Not Found"}, 404

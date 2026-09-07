@@ -140,7 +140,7 @@ def update_pending_status(cursor, meeting_id, target_user_id, status):
             """
             UPDATE meeting_participants
             SET participation_status = %s,
-                approved_at = NOW()
+                approved_at = UTC_TIMESTAMP()
             WHERE meeting_id = %s
             AND user_id = %s
             """,
