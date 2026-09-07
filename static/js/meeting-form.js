@@ -23,6 +23,7 @@ async function loadForEdit() {
   form.sport_id.value = m.sport_id;
   form.meeting_date.value = formatMeetingDate(m.meeting_date);
   form.meeting_time.value = formatMeetingTime(m.meeting_time);
+  form.end_time.value = formatMeetingTime(m.end_time);
   form.location.value = m.location;
   form.max_participants.value = m.max_participants;
   form.required_skill_level.value = m.required_skill_level || "";
@@ -41,6 +42,7 @@ form.addEventListener("submit", async (e) => {
     sport_id: Number(form.sport_id.value),
     meeting_date: form.meeting_date.value,
     meeting_time: form.meeting_time.value,
+    end_time: form.end_time.value,
     location: form.location.value,
     max_participants: Number(form.max_participants.value),
     required_skill_level: form.required_skill_level.value || null,

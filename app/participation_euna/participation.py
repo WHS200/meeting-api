@@ -2,6 +2,8 @@ from flask import Blueprint, request
 
 from app.chat_dahyun.socket_events import remove_user_from_chat_room
 from app.shared.decorators import login_required
+from app.codex_features.notifications import notify
+from app.codex_features.waitlist import ensure_no_overlap, enqueue_waiter, promote_waiters
 from app.participation_euna.helpers import (
     add_chat_room_member,
     get_meeting_context,
@@ -38,6 +40,8 @@ def join_meeting(meeting_id):
         if meeting["host_id"] == user_id:
             return {"message": "Host cannot participate in own meeting."}, 409
 
+        ensure_no_overlap(cursor, user_id, meeting)
+
         # 이미 참여 신청한 사용자인지 확인
         cursor.execute(
             """
@@ -51,7 +55,9 @@ def join_meeting(meeting_id):
 
         participant = cursor.fetchone()
 
-        if participant:
+        if participant and participant["participation_status"] in ("CANCELED", "REJECTED"):
+            cursor.execute("DELETE FROM meeting_participants WHERE meeting_id = %s AND user_id = %s", (meeting_id, user_id))
+        elif participant:
             return {"message": "Already Participated"}, 409
 
         # 현재 승인된 참여자 수 확인
@@ -68,8 +74,11 @@ def join_meeting(meeting_id):
         participant_count = cursor.fetchone()["count"]
 
         # 정원 초과 여부 확인
-        if participant_count + 1 >= meeting["max_participants"]:
-            return {"message": "Meeting Full"}, 409
+        if participant_count + 1 >= meeting["max_participants"] and meeting["approval_type"] == "INSTANT":
+            enqueue_waiter(cursor, meeting_id, user_id)
+            notify(cursor, meeting["host_id"], "PARTICIPATION_REQUEST", "모임에 새로운 대기 신청이 도착했습니다.", "MEETING", meeting_id)
+            connection.commit()
+            return {"message": "Added to waitlist.", "participation_status": "WAITING"}, 201
 
         # 승인 방식에 따라 참여 상태 결정
         if meeting["approval_type"] == "INSTANT":
@@ -96,6 +105,9 @@ def join_meeting(meeting_id):
                 (meeting_id, user_id, participation_status)
             )
 
+        notify(cursor, meeting["host_id"], "PARTICIPATION_REQUEST", "모임에 새로운 참여 신청이 도착했습니다.", "MEETING", meeting_id)
+        if participation_status == "APPROVED":
+            notify(cursor, user_id, "PARTICIPATION_APPROVED", "모임 참여가 승인되었습니다.", "MEETING", meeting_id)
         connection.commit()
 
         return {
@@ -117,7 +129,7 @@ def join_meeting(meeting_id):
 def cancel_participation(meeting_id):
 
     # 모임 존재 여부 확인
-    connection, cursor, meeting, user_id, error = get_meeting_context(meeting_id)
+    connection, cursor, meeting, user_id, error = get_meeting_context(meeting_id, for_update=True)
 
     if error:
         return error
@@ -134,7 +146,7 @@ def cancel_participation(meeting_id):
             FROM meeting_participants
             WHERE meeting_id = %s
             AND user_id = %s
-            AND participation_status IN ('PENDING', 'APPROVED')
+            AND participation_status IN ('PENDING', 'APPROVED', 'WAITING')
             """,
             (meeting_id, user_id)
         )
@@ -152,13 +164,14 @@ def cancel_participation(meeting_id):
                 canceled_at = NOW()
             WHERE meeting_id = %s
             AND user_id = %s
-            AND participation_status IN ('PENDING', 'APPROVED')
+            AND participation_status IN ('PENDING', 'APPROVED', 'WAITING')
             """,
             (meeting_id, user_id)
         )
 
         chat_room_id = remove_chat_room_member(cursor, meeting_id, user_id)
 
+        promote_waiters(cursor, meeting)
         connection.commit()
 
     except Exception:
@@ -251,6 +264,8 @@ def approve_participant(meeting_id, target_user_id):
         if pending_participant is None:
             return {"message": "Pending Participation Not Found"}, 404
 
+        ensure_no_overlap(cursor, target_user_id, meeting)
+
         # 현재 승인된 참여자 수 확인
         cursor.execute(
             """
@@ -266,7 +281,10 @@ def approve_participant(meeting_id, target_user_id):
 
         # 정원 초과 여부 확인
         if participant_count + 1 >= meeting["max_participants"]:
-            return {"message": "Meeting Full"}, 409
+            enqueue_waiter(cursor, meeting_id, target_user_id, from_pending=True)
+            notify(cursor, target_user_id, "PARTICIPATION_APPROVED", "신청이 승인되어 정원 대기열에 등록되었습니다.", "MEETING", meeting_id)
+            connection.commit()
+            return {"message": "Approved for waitlist.", "participation_status": "WAITING"}, 200
 
         # 승인 대기 중인 참가 신청을 APPROVED 상태로 변경
         update_pending_status(
@@ -275,6 +293,7 @@ def approve_participant(meeting_id, target_user_id):
 
         add_chat_room_member(cursor, meeting_id, target_user_id)
 
+        notify(cursor, target_user_id, "PARTICIPATION_APPROVED", "모임 참여가 승인되었습니다.", "MEETING", meeting_id)
         connection.commit()
 
         return {"message": "Participation Approved"}, 200
@@ -295,7 +314,7 @@ def approve_participant(meeting_id, target_user_id):
 def reject_participant(meeting_id, target_user_id):
 
     # 모임 존재 여부와 모임장 권한 확인
-    connection, cursor, meeting, user_id, error = get_host_context(meeting_id)
+    connection, cursor, meeting, user_id, error = get_host_context(meeting_id, for_update=True)
 
     if error:
         return error
@@ -307,6 +326,7 @@ def reject_participant(meeting_id, target_user_id):
         ):
             return {"message": "Pending Participation Not Found"}, 404
 
+        notify(cursor, target_user_id, "PARTICIPATION_REJECTED", "모임 참여 신청이 거절되었습니다.", "MEETING", meeting_id)
         connection.commit()
 
         return {"message": "Participation Rejected"}, 200
@@ -363,7 +383,7 @@ def get_approved_participants(meeting_id):
 def kick_participant(meeting_id, target_user_id):
 
     # 모임 존재 여부와 모임장 권한 확인
-    connection, cursor, meeting, user_id, error = get_host_context(meeting_id)
+    connection, cursor, meeting, user_id, error = get_host_context(meeting_id, for_update=True)
 
     if error:
         return error
@@ -407,6 +427,7 @@ def kick_participant(meeting_id, target_user_id):
             target_user_id
         )
 
+        promote_waiters(cursor, meeting)
         connection.commit()
 
     except Exception:

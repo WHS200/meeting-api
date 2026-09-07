@@ -11,6 +11,7 @@ from app.auth_gyumin.users import users_bp
 from app.chat_dahyun import chat_bp, register_socket_events
 from app.meetings_gyudong.meetings import meetings_bp
 from app.participation_euna.participation import participation_bp
+from app.codex_features import features_bp
 
 
 load_dotenv()
@@ -30,6 +31,7 @@ app.register_blueprint(uploads_bp)
 app.register_blueprint(meetings_bp)
 app.register_blueprint(participation_bp)
 app.register_blueprint(chat_bp)
+app.register_blueprint(features_bp)
 
 register_socket_events(socketio)
 

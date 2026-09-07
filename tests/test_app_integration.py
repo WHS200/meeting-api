@@ -20,6 +20,15 @@ class AppIntegrationTest(unittest.TestCase):
         self.assertIn("/api/meetings", rules)
         self.assertIn("/api/meetings/<int:meeting_id>/participants", rules)
         self.assertIn("/api/chat/rooms", rules)
+        for route in (
+            "/api/friends", "/api/blocks", "/api/chat/direct",
+            "/api/community/posts", "/api/reports", "/api/notifications",
+            "/api/favorites", "/api/users/me/stats",
+            "/api/meetings/<int:meeting_id>/waitlist",
+            "/api/sports/proposals", "/api/admin/users",
+            "/api/admin/reports", "/api/admin/sports/proposals",
+        ):
+            self.assertIn(route, rules)
 
     def test_existing_protected_apis_still_require_login(self):
         client = self.app.test_client()

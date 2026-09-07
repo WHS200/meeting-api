@@ -67,6 +67,9 @@ class MeetingCreationCursor(FakeCursor):
 
 class MeetingsApiTest(unittest.TestCase):
     def setUp(self):
+        patcher = patch("app.meetings_gyudong.meetings.lock_schedule")
+        patcher.start()
+        self.addCleanup(patcher.stop)
         app = Flask(__name__)
         app.config.update(TESTING=True, SECRET_KEY="test-secret")
         app.register_blueprint(meetings_bp)
@@ -79,6 +82,7 @@ class MeetingsApiTest(unittest.TestCase):
             "sport_id": 1,
             "meeting_date": "2026-08-30",
             "meeting_time": "19:30",
+            "end_time": "20:30",
             "location": "여의도",
             "max_participants": 4,
             "required_skill_level": "SILVER",

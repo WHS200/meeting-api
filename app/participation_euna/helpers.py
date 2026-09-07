@@ -1,6 +1,7 @@
 from flask import session
 
 from app.shared.database import get_db_connection
+from app.codex_features.waitlist import lock_schedule
 
 
 # 모임 정보와 로그인 사용자 정보 가져오기
@@ -12,6 +13,9 @@ def get_meeting_context(meeting_id, for_update=False):
 
     try:
         cursor = connection.cursor(dictionary=True)
+
+        if for_update:
+            lock_schedule(cursor)
 
         sql = """
             SELECT *

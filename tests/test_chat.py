@@ -89,8 +89,25 @@ class ChatApiTest(unittest.TestCase):
         self.assertIn("msg.created_at", messages_sql)
         self.assertNotIn("sent_at", messages_sql)
 
+    def test_room_list_resolves_direct_counterpart_from_session_user(self):
+        cursor = FakeCursor(many=[])
+        connection = FakeConnection(cursor)
+        with patch("app.chat_dahyun.chat.get_db_connection", return_value=connection):
+            response = self.client.get("/api/chat/rooms")
+        self.assertEqual(response.status_code, 200)
+        sql, params = cursor.executed[0]
+        self.assertIn("direct_member.user_id != %s", sql)
+        self.assertIn("direct_user.nickname AS direct_nickname", sql)
+        self.assertEqual(params, (1, 1))
+
 
 class ChatSocketTest(unittest.TestCase):
+    def setUp(self):
+        # Status policy is covered with real MySQL in test_admin.py.
+        patcher = patch("app.chat_dahyun.socket_events.socket_user_active", return_value=True)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_message_datetime_is_socket_json_serializable(self):
         message = _serialize_message({
             "message_id": 7,
@@ -124,7 +141,7 @@ class ChatSocketTest(unittest.TestCase):
         with patch(
             "app.chat_dahyun.socket_events.get_db_connection",
             return_value=connection,
-        ):
+        ), patch("app.chat_dahyun.socket_events.check_direct_send"):
             client = socketio.test_client(app, flask_test_client=flask_client)
             self.assertTrue(client.is_connected())
             client.emit("send_message", {

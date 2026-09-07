@@ -5,3 +5,20 @@ python-dotenv==1.2.3
 gunicorn==26.2.0
 simple-websocket==1.1.0
 boto3
+
+
+# Nginx
+# proxy_pass http://127.0.0.1:5000
+# → "내가 받은 요청을 Host의 5000으로 보내겠다"
+
+
+# Docker Compose
+# 127.0.0.1:5000:5000
+# → "Host의 127.0.0.1:5000으로 들어온 것을
+#    app container의 5000으로 보내겠다"
+
+
+# Gunicorn
+# 0.0.0.0:5000
+# → "app container 내부에서
+#    5000번으로 들어오는 요청을 받겠다"

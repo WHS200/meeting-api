@@ -37,6 +37,7 @@ async function initializeHeader() {
   } catch (error) {
     showToast(error.message);
   }
+  initializeGlobalNavigation(currentUserPromise ? await currentUserPromise.catch(() => null) : null);
   document.querySelectorAll("[data-logout]").forEach((button) =>
     button.addEventListener("click", async () => {
       try {
@@ -144,3 +145,53 @@ function redirectAfterLogin() {
     next && next.startsWith("/static/") ? next : "/static/index.html";
 }
 document.addEventListener("DOMContentLoaded", initializeHeader);
+
+function initializeGlobalNavigation(user) {
+  const header = document.querySelector('.topbar');
+  if (!header) return;
+
+  // 모든 화면에서 동일한 핵심 메뉴를 사용한다.
+  const mainNav = header.querySelector('.main-nav');
+  if (mainNav) {
+    const path = location.pathname;
+    const links = [
+      ['/static/index.html', '모임 찾기', path.endsWith('/index.html') && !path.includes('/admin/')],
+      ['/static/create.html', '모임 생성', path.endsWith('/create.html') || path.endsWith('/edit.html')],
+      ['/static/my-meetings.html', '내 모임', path.endsWith('/my-meetings.html')],
+      ['/static/community.html', '커뮤니티', path.endsWith('/community.html') || path.endsWith('/post-detail.html')],
+    ];
+    mainNav.innerHTML = links.map(([href, label, active]) =>
+      `<a${active ? ' class="active"' : ''} href="${href}">${label}</a>`).join('');
+  }
+
+  // 프로필 바로 왼쪽에 친구/알림 바로가기를 둔다.
+  let actions = header.querySelector('.top-quick-actions');
+  if (!actions) {
+    actions = document.createElement('div');
+    actions.className = 'top-quick-actions';
+    actions.innerHTML = '<a href="/static/friends.html" title="친구" aria-label="친구"><svg class="quick-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3.5 19c.4-3.1 2.2-4.8 5.5-4.8s5.1 1.7 5.5 4.8M14.5 14.8c2.8-.3 4.7 1.1 5 4.2"/></svg></a><a href="/static/notifications.html" title="알림" aria-label="알림"><svg class="quick-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 8.5h18C21 16 18 16 18 9Z"/><path d="M10 20h4"/></svg></a><a href="/static/chat.html" title="채팅" aria-label="채팅"><svg class="quick-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-8 7.5 8.8 8.8 0 0 1-3.5-.7L4 20l1.4-3.4A7.3 7.3 0 0 1 4 11.5 7.5 7.5 0 0 1 12 4a7.5 7.5 0 0 1 8 7.5Z"/><path d="M8 11.5h.01M12 11.5h.01M16 11.5h.01"/></svg></a>';
+    const topActions = header.querySelector('.top-actions');
+    if (topActions) {
+      const profile = [...topActions.querySelectorAll('a')].find((a) => /profile\.html/.test(a.getAttribute('href') || ''));
+      if (profile) topActions.insertBefore(actions, profile);
+      else topActions.append(actions);
+    }
+    else {
+      const profile = [...header.querySelectorAll('a')].find((a) => /profile\.html/.test(a.getAttribute('href') || ''));
+      if (profile) profile.parentElement.insertBefore(actions, profile);
+      else header.querySelector('.topbar-inner')?.append(actions);
+    }
+  }
+
+  // 관리자 링크는 서버가 알려준 role이 ADMIN인 경우에만 표시한다.
+  const existingAdmin = header.querySelector('[data-admin-nav]');
+  if (user?.role === 'ADMIN' && !existingAdmin) {
+    const admin = document.createElement('a');
+    admin.href = '/static/admin/index.html';
+    admin.textContent = '관리자';
+    admin.dataset.adminNav = 'true';
+    mainNav?.append(admin);
+  } else if (user?.role !== 'ADMIN' && existingAdmin) {
+    existingAdmin.remove();
+  }
+}

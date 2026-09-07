@@ -38,18 +38,30 @@ def get_chat_rooms():
                 cr.room_type,
                 cr.meeting_id,
                 cr.created_at,
-                m.title AS meeting_title
+                m.title AS meeting_title,
+                direct_user.nickname AS direct_nickname,
+                direct_user.profile_image AS direct_profile_image
             FROM chat_room_members AS crm
             JOIN chat_rooms AS cr
                 ON crm.chat_room_id = cr.chat_room_id
             LEFT JOIN meetings AS m
                 ON cr.meeting_id = m.meeting_id
+            LEFT JOIN chat_room_members AS direct_member
+                ON direct_member.chat_room_id = cr.chat_room_id
+                AND cr.room_type = 'DIRECT'
+                AND direct_member.user_id != %s
+            LEFT JOIN users AS direct_user
+                ON direct_user.user_id = direct_member.user_id
             WHERE crm.user_id = %s
             ORDER BY cr.created_at DESC
             """,
-            (user_id,)
+            (user_id, user_id)
         )
         chat_rooms = cursor.fetchall()
+        for room in chat_rooms:
+            room["direct_profile_image"] = (
+                generate_profile_image_url(room.get("direct_profile_image"))
+            )
     finally:
         cursor.close()
         connection.close()

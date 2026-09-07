@@ -24,7 +24,7 @@ def get_me():
     try:
         cursor.execute(
             """
-            SELECT login_id, nickname, email, profile_image, birth_date, gender, region
+            SELECT user_id, role, login_id, nickname, email, profile_image, birth_date, gender, region
             FROM users
             WHERE status != 'DELETED' AND user_id = %s
             """,

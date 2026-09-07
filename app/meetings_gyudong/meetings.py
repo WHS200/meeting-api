@@ -4,6 +4,8 @@ from flask import Blueprint, request, session
 
 from app.shared.database import get_db_connection
 from app.shared.decorators import login_required
+from app.codex_features.notifications import notify_meeting_changes
+from app.codex_features.waitlist import lock_schedule, validate_duration, validate_meeting_update, promote_waiters
 
 
 meetings_bp = Blueprint("meetings", __name__, url_prefix="/api/meetings")
@@ -41,6 +43,7 @@ def _meeting_select_sql():
             u.nickname AS host_name,
             m.meeting_date,
             m.meeting_time,
+            m.end_time,
             m.location,
             m.max_participants,
             m.required_skill_level,
@@ -69,6 +72,14 @@ def _serialize_meeting(meeting):
     elif isinstance(meeting_time, str):
         meeting["meeting_time"] = meeting_time[:5]
 
+    end_time = meeting.get("end_time")
+    if isinstance(end_time, timedelta):
+        minutes = int(end_time.total_seconds() // 60)
+        meeting["end_time"] = f"{minutes // 60:02d}:{minutes % 60:02d}"
+    elif isinstance(end_time, time):
+        meeting["end_time"] = end_time.strftime("%H:%M")
+    elif isinstance(end_time, str):
+        meeting["end_time"] = end_time[:5]
     return meeting
 
 
@@ -115,19 +126,19 @@ def _validate_meeting(data, require_status=False):
     except (TypeError, ValueError):
         return {"message": "meeting_time should be HH:MM."}, 400
 
-    if data["approval_type"] not in APPROVAL_TYPES:
+    if not isinstance(data["approval_type"], str) or data["approval_type"] not in APPROVAL_TYPES:
         return {"message": "approval_type must be INSTANT or APPROVAL."}, 400
     required_skill_level = data.get("required_skill_level")
-    if required_skill_level is not None and required_skill_level not in SKILL_LEVELS:
+    if required_skill_level is not None and (not isinstance(required_skill_level, str) or required_skill_level not in SKILL_LEVELS):
         return {
             "message": (
                 "required_skill_level must be null, BRONZE, SILVER, GOLD, or MASTER."
             )
         }, 400
-    if require_status and data["status"] not in MEETING_STATUSES:
+    if require_status and (not isinstance(data["status"], str) or data["status"] not in MEETING_STATUSES):
         return {"message": "Invalid meeting status."}, 400
 
-    return None
+    return validate_duration(data)
 
 
 @meetings_bp.get("")
@@ -211,17 +222,18 @@ def create_meeting():
     connection = get_db_connection()
     cursor = connection.cursor(dictionary=True)
     try:
-        cursor.execute("SELECT sport_id FROM sports WHERE sport_id = %s", (data["sport_id"],))
+        lock_schedule(cursor)
+        cursor.execute("SELECT sport_id FROM sports WHERE sport_id = %s AND status = 'ACTIVE'", (data["sport_id"],))
         if cursor.fetchone() is None:
             return {"message": "Sport Not Found"}, 404
 
         cursor.execute(
             """
             INSERT INTO meetings (
-                host_id, sport_id, title, description, meeting_date, meeting_time,
+                host_id, sport_id, title, description, meeting_date, meeting_time, end_time,
                 location, max_participants, required_skill_level, approval_type,
                 status
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'RECRUITING')
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'RECRUITING')
             """,
             (
                 session["user_id"],
@@ -230,6 +242,7 @@ def create_meeting():
                 data["description"].strip(),
                 data["meeting_date"],
                 data["meeting_time"],
+                data["end_time"],
                 data["location"].strip(),
                 data["max_participants"],
                 data.get("required_skill_level"),
@@ -291,16 +304,19 @@ def update_meeting(meeting_id):
     connection = get_db_connection()
     cursor = connection.cursor(dictionary=True)
     try:
+        lock_schedule(cursor)
         editor = _get_editor(cursor, meeting_id, session["user_id"])
         if editor is None:
             return {"message": "Meeting Not Found"}, 404
         if editor["host_id"] != session["user_id"] and editor["role"] != "ADMIN":
             return {"message": "Not Authorized"}, 403
 
-        cursor.execute("SELECT sport_id FROM sports WHERE sport_id = %s", (data["sport_id"],))
+        cursor.execute("SELECT sport_id FROM sports WHERE sport_id = %s AND status = 'ACTIVE'", (data["sport_id"],))
         if cursor.fetchone() is None:
             return {"message": "Sport Not Found"}, 404
 
+        validate_meeting_update(cursor, meeting_id, data)
+        notify_meeting_changes(cursor, meeting_id, data)
         cursor.execute(
             """
             UPDATE meetings
@@ -309,6 +325,7 @@ def update_meeting(meeting_id):
                 description = %s,
                 meeting_date = %s,
                 meeting_time = %s,
+                end_time = %s,
                 location = %s,
                 max_participants = %s,
                 required_skill_level = %s,
@@ -322,6 +339,7 @@ def update_meeting(meeting_id):
                 data["description"].strip(),
                 data["meeting_date"],
                 data["meeting_time"],
+                data["end_time"],
                 data["location"].strip(),
                 data["max_participants"],
                 data.get("required_skill_level"),
@@ -330,6 +348,7 @@ def update_meeting(meeting_id):
                 meeting_id,
             ),
         )
+        promote_waiters(cursor, dict(data, meeting_id=meeting_id))
         connection.commit()
     except Exception:
         connection.rollback()
@@ -346,6 +365,7 @@ def delete_meeting(meeting_id):
     connection = get_db_connection()
     cursor = connection.cursor(dictionary=True)
     try:
+        lock_schedule(cursor)
         editor = _get_editor(cursor, meeting_id, session["user_id"])
         if editor is None:
             return {"message": "Meeting Not Found"}, 404
@@ -371,9 +391,12 @@ def get_my_meetings():
     try:
         cursor.execute(
             _meeting_select_sql()
-            + " WHERE m.host_id = %s"
+            + " WHERE m.host_id = %s OR EXISTS ("
+            + "SELECT 1 FROM meeting_participants AS mp "
+            + "WHERE mp.meeting_id = m.meeting_id AND mp.user_id = %s "
+            + "AND mp.participation_status = 'APPROVED')"
             + " ORDER BY m.meeting_date ASC, m.meeting_time ASC, m.meeting_id ASC",
-            (session["user_id"],),
+            (session["user_id"], session["user_id"]),
         )
         meetings = [_serialize_meeting(meeting) for meeting in cursor.fetchall()]
     finally:

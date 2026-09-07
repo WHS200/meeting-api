@@ -54,6 +54,13 @@ class FakeConnection:
 
 class ParticipationChatIntegrationTest(unittest.TestCase):
     def setUp(self):
+        # New policy helpers have separate MySQL integration tests; retain legacy SQL assertions.
+        for target in ("app.participation_euna.helpers.lock_schedule",
+                       "app.participation_euna.participation.ensure_no_overlap",
+                       "app.participation_euna.participation.promote_waiters"):
+            patcher = patch(target)
+            patcher.start()
+            self.addCleanup(patcher.stop)
         app = Flask(__name__)
 
         app.config.update(
@@ -512,8 +519,9 @@ class ParticipationChatIntegrationTest(unittest.TestCase):
 
         self.assertEqual(
             full_join.status_code,
-            409
+            201
         )
+        self.assertEqual(full_join.get_json()["participation_status"], "WAITING")
 
         self.assertEqual(
             allowed_approval.status_code,
@@ -522,8 +530,9 @@ class ParticipationChatIntegrationTest(unittest.TestCase):
 
         self.assertEqual(
             full_approval.status_code,
-            409
+            200
         )
+        self.assertEqual(full_approval.get_json()["participation_status"], "WAITING")
 
     def test_host_cannot_join_own_meeting(self):
         response, connection, cursor = self._request(

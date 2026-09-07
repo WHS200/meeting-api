@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="ko">
   <head>
     <meta charset="utf-8" />
@@ -46,9 +46,9 @@
               </div>
               <div class="field">
                 <label>운동 종목</label
-                ><select name="sport_id" required></select>
+                ><select name="sport_id" required></select><a class="btn sm soft sport-add-link" href="/static/sports.html">원하는 종목이 없으면 추가하세요!</a>
               </div>
-              <div class="field">
+              <div class="field skill-condition-field">
                 <label>모임 실력 조건</label
                 ><select name="required_skill_level">
                   <option value="">상관없음</option>
@@ -81,6 +81,7 @@
                 <label>시간</label
                 ><input name="meeting_time" type="time" required />
               </div>
+              <div class="field"><label>종료 시간 (30분~12시간 진행)</label><input name="end_time" type="time" required /></div>
               <div class="field full">
                 <label>장소</label><input name="location" required />
               </div>
@@ -126,3 +127,6 @@
     <script src="js/meeting-form.js"></script>
   </body>
 </html>
+
+
+

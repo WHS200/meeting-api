@@ -7,6 +7,9 @@ from flask_socketio import disconnect as disconnect_client
 from flask_socketio import emit, join_room, leave_room
 
 from app.shared.database import get_db_connection
+from app.codex_features.direct_chat import check_direct_send
+from app.codex_features.helpers import APIError
+from app.codex_features.admin import socket_user_active
 
 from app.shared.s3 import generate_profile_image_url #S3
 
@@ -71,6 +74,15 @@ def _serialize_message(message):
     return message
 
 
+def disconnect_user_sockets(user_id):
+    if _socketio is None:
+        return
+    with _sid_lock:
+        user_sids = tuple(_user_sids.get(user_id, ()))
+    for sid in user_sids:
+        _socketio.server.disconnect(sid, namespace="/")
+
+
 def _get_chat_room_id(data):
     if not isinstance(data, dict):
         return None
@@ -123,7 +135,7 @@ def register_socket_events(socketio):
     def handle_connect():
         user_id = session.get("user_id")
 
-        if user_id is None:
+        if user_id is None or not socket_user_active(user_id):
             return False
 
         _track_user_socket(user_id, request.sid)
@@ -134,7 +146,7 @@ def register_socket_events(socketio):
     def handle_join_room(data):
         user_id = session.get("user_id")
 
-        if user_id is None:
+        if user_id is None or not socket_user_active(user_id):
             emit("error", {"message": "Login first."})
             disconnect_client()
             return
@@ -162,7 +174,7 @@ def register_socket_events(socketio):
     def handle_leave_room(data):
         user_id = session.get("user_id")
 
-        if user_id is None:
+        if user_id is None or not socket_user_active(user_id):
             emit("error", {"message": "Login first."})
             disconnect_client()
             return
@@ -190,7 +202,7 @@ def register_socket_events(socketio):
     def handle_send_message(data):
         user_id = session.get("user_id")
 
-        if user_id is None:
+        if user_id is None or not socket_user_active(user_id):
             emit("error", {"message": "Login first."})
             disconnect_client()
             return
@@ -208,6 +220,9 @@ def register_socket_events(socketio):
             return
 
         content = content.strip()
+        if len(content) > 10000:
+            emit("error", {"message": "Message must be at most 10000 characters."})
+            return
 
         connection = get_db_connection()
         cursor = connection.cursor(dictionary=True)
@@ -219,6 +234,8 @@ def register_socket_events(socketio):
                     {"message": "Chat room not found or access denied."}
                 )
                 return
+
+            check_direct_send(cursor, chat_room_id, user_id)
 
             cursor.execute(
                 """
@@ -254,6 +271,10 @@ def register_socket_events(socketio):
             message = _serialize_message(cursor.fetchone())
 
             connection.commit()
+        except APIError as error:
+            connection.rollback()
+            emit("error", {"message": error.message, "status": error.status})
+            return
         except Exception:
             connection.rollback()
             emit("error", {"message": "Failed to save message."})

@@ -6,6 +6,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.shared.database import get_db_connection
 from app.shared.request_utils import get_json_body
+from app.codex_features.admin import check_active_user
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
@@ -134,6 +135,9 @@ def login():
         password_hash = existing_user.get("password")
         if not check_password_hash(password_hash, password):
             return {"message": "Wrong ID or Password."}, 401
+
+        check_active_user(cursor, existing_user["user_id"])
+        connection.commit()
 
         # 로그인 성공 (DB에서 조회한 user_id를 세션에 저장)
         session.clear()
