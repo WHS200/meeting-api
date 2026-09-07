@@ -63,7 +63,7 @@ class WaitlistScheduleTest(MySQLTestCase):
                  'meeting_time':'10:00','end_time':'12:00','location':'Seoul','max_participants':3,
                  'approval_type':'INSTANT','status':'RECRUITING'}
         with ThreadPoolExecutor(max_workers=2) as pool:
-            responses=list(pool.map(lambda _: self.client.post('/api/meetings',json=payload),[1,2]))
+            responses=list(pool.map(lambda _: self.client_for(1).post('/api/meetings',json=payload),[1,2]))
         self.assertEqual(sorted(r.status_code for r in responses),[201,409])
 
     def test_duration_capacity_reduction_and_edit_conflict(self):

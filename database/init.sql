@@ -459,3 +459,10 @@ CREATE TABLE sport_proposals (
     INDEX idx_sport_proposals_review (status,proposal_id)
 );
 INSERT INTO feature_locks (lock_name) VALUES ('sports');
+CREATE TABLE schema_migrations (
+    version VARCHAR(100) PRIMARY KEY,
+    checksum CHAR(64) NOT NULL,
+    applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+INSERT INTO schema_migrations (version, checksum)
+VALUES ('__INIT_SQL_BASELINE__', REPEAT('0', 64));

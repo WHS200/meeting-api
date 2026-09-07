@@ -26,6 +26,44 @@ class MigrationTest(MySQLTestCase):
         migrate.apply(connection)
         connection.close()
 
+    def test_latest_init_sql_is_explicitly_baselined(self):
+        database = "yanawa_codex_init_migration_test"
+        root = connect(None)
+        cursor = root.cursor()
+        cursor.execute(f"DROP DATABASE IF EXISTS `{database}`")
+        cursor.execute(f"CREATE DATABASE `{database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci")
+        cursor.close()
+        root.close()
+        connection = mysql_connection(database)
+        execute_script(connection, (migrate.ROOT / "database" / "init.sql").read_text(encoding="utf-8"))
+        states = migrate.status(connection)
+        self.assertTrue(all(state == "applied" for _, state in states))
+        migrate.prepare(connection)
+        migrate.apply(connection)
+        self.assertTrue(all(state == "applied" for _, state in migrate.status(connection)))
+        connection.close()
+
+    def test_partial_sport_proposals_does_not_baseline_all(self):
+        database = "yanawa_codex_partial_migration_test"
+        root = connect(None)
+        cursor = root.cursor()
+        cursor.execute(f"DROP DATABASE IF EXISTS `{database}`")
+        cursor.execute(f"CREATE DATABASE `{database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci")
+        cursor.close()
+        root.close()
+        connection = mysql_connection(database)
+        execute_script(connection, (migrate.ROOT / "tests" / "fixtures" / "baseline_init.sql").read_text(encoding="utf-8"))
+        execute_script(connection, (migrate.ROOT / "database" / "migrations" / "001_add_meeting_required_skill_level.sql").read_text(encoding="utf-8"))
+        cursor = connection.cursor()
+        cursor.execute("CREATE TABLE sport_proposals (proposal_id INT PRIMARY KEY)")
+        connection.commit()
+        cursor.close()
+        migrate.prepare(connection)
+        states = dict((path.name, state) for path, state in migrate.status(connection))
+        self.assertEqual(states["001_add_meeting_required_skill_level.sql"], "applied")
+        self.assertEqual(states["010_sports_management.sql"], "pending")
+        connection.close()
+
 
 def mysql_connection(database):
     import os

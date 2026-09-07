@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATIONS = Path(__file__).resolve().parent / "migrations"
+INIT_SQL_MARKER = "__INIT_SQL_BASELINE__"
 
 
 def connect():
@@ -45,9 +46,8 @@ def prepare(connection):
         checksum CHAR(64) NOT NULL,
         applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
     )""")
-    # Baseline databases created by the current init.sql; do not replay CREATE/ALTER statements.
-    cursor.execute("""SELECT 1 FROM information_schema.tables
-        WHERE table_schema = DATABASE() AND table_name = 'sport_proposals'""")
+    # Only an explicit init.sql marker may baseline the complete migration set.
+    cursor.execute("SELECT 1 FROM schema_migrations WHERE version = %s", (INIT_SQL_MARKER,))
     if cursor.fetchone():
         for path in migrations():
             cursor.execute("""INSERT IGNORE INTO schema_migrations (version, checksum)
@@ -90,6 +90,8 @@ def status(connection):
     if has_table:
         cursor.execute("SELECT version, checksum FROM schema_migrations")
         applied = {row["version"]: row["checksum"] for row in cursor.fetchall()}
+        if INIT_SQL_MARKER in applied:
+            applied.update({path.name: digest(path) for path in migrations()})
     else:
         applied = {}
     cursor.close()
