@@ -24,7 +24,7 @@ class AdminTest(MySQLTestCase):
         self.assertEqual(admin.post('/api/admin/users/1/unsuspend',json={'reason':'Appeal accepted'}).status_code,200)
         self.assertEqual(self.client.get('/api/users/me').status_code,200)
         admin.post('/api/admin/users/1/suspend',json={'days':1,'reason':'Policy'})
-        self.sql('UPDATE users SET suspended_until=UTC_TIMESTAMP()-INTERVAL 1 SECOND WHERE user_id=1')
+        self.sql('UPDATE users SET suspended_until=CURRENT_TIMESTAMP()-INTERVAL 1 SECOND WHERE user_id=1')
         self.assertEqual(self.client.get('/api/users/me').status_code,200)
         self.assertEqual(self.sql('SELECT status FROM users WHERE user_id=1')[0]['status'],'ACTIVE')
 
@@ -53,3 +53,23 @@ class AdminTest(MySQLTestCase):
         post=admin.post('/api/admin/notices',json={'title':'Notice','content':'Welcome'}).json['post_id']
         self.assertEqual(admin.delete(f'/api/admin/posts/{post}',json={'reason':'Outdated'}).status_code,204)
         self.assertEqual(self.client.get(f'/api/community/posts/{post}').status_code,404)
+
+    def test_meeting_report_actions_complete_the_report(self):
+        meeting = self.meeting()
+        admin = self.client_for(6)
+        dismissed = self.client.post('/api/reports', json={'target_type':'MEETING','target_id':meeting,'reason':'Abuse'}).json['report_id']
+        response = admin.patch(f'/api/admin/reports/{dismissed}', json={
+            'status':'IN_REVIEW', 'action':'DISMISS_REPORT', 'process_note':'No violation'
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json['status'], 'DISMISSED')
+        self.assertEqual(self.sql('SELECT status FROM reports WHERE report_id=%s', (dismissed,))[0]['status'], 'DISMISSED')
+
+        second_meeting = self.meeting(start='12:00', end='13:00')
+        report = self.client.post('/api/reports', json={'target_type':'MEETING','target_id':second_meeting,'reason':'Abuse 2'}).json['report_id']
+        response = admin.patch(f'/api/admin/reports/{report}', json={
+            'status':'IN_REVIEW', 'action':'CANCEL_MEETING', 'process_note':'Policy violation'
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json['status'], 'RESOLVED')
+        self.assertEqual(self.sql('SELECT status FROM reports WHERE report_id=%s', (report,))[0]['status'], 'RESOLVED')

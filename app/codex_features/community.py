@@ -90,7 +90,7 @@ def delete_post(post_id):
     with transaction() as cursor:
         post = get_post(cursor, post_id, lock=True)
         can_edit(cursor, post["author_id"])
-        cursor.execute("UPDATE community_posts SET deleted_at = UTC_TIMESTAMP() WHERE post_id = %s", (post_id,))
+        cursor.execute("UPDATE community_posts SET deleted_at = CURRENT_TIMESTAMP() WHERE post_id = %s", (post_id,))
     return "", 204
 
 
@@ -115,5 +115,5 @@ def delete_comment(comment_id):
         if not comment:
             raise APIError("Comment not found.", 404)
         can_edit(cursor, comment["author_id"])
-        cursor.execute("UPDATE community_comments SET deleted_at = UTC_TIMESTAMP() WHERE comment_id = %s", (comment_id,))
+        cursor.execute("UPDATE community_comments SET deleted_at = CURRENT_TIMESTAMP() WHERE comment_id = %s", (comment_id,))
     return "", 204

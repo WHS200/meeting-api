@@ -36,6 +36,14 @@ async function adminDetail(id) {
     document.getElementById('userModeration').onsubmit=e=>{e.preventDefault();const action=e.submitter.value;featureAction(async()=>{
       await apiFetch(`/api/admin/users/${id}/${action}`,jsonOptions('POST',{days:Number(e.target.days.value),reason:e.target.reason.value}));showToast('처리했습니다.');await loadAdmin();await adminDetail(id);
     });};
+    const moderation = document.getElementById('userModeration');
+    moderation.outerHTML=`<form id="userSuspend"><label>정지 기간 (1~365일)<input name="days" type="number" min="1" max="365" value="7" required></label><label>정지 사유<textarea name="reason" maxlength="1000" required></textarea></label><button class="btn danger">기간 정지</button></form><form id="userUnsuspend"><label>해제 사유<textarea name="reason" maxlength="1000" required></textarea></label><button class="btn">정지 해제</button></form>`;
+    document.getElementById('userSuspend').onsubmit=e=>{e.preventDefault();featureAction(async()=>{
+      await apiFetch(`/api/admin/users/${id}/suspend`,jsonOptions('POST',{days:Number(e.target.days.value),reason:e.target.reason.value}));showToast('처리되었습니다.');await loadAdmin();await adminDetail(id);
+    });};
+    document.getElementById('userUnsuspend').onsubmit=e=>{e.preventDefault();featureAction(async()=>{
+      await apiFetch(`/api/admin/users/${id}/unsuspend`,jsonOptions('POST',{reason:e.target.reason.value}));showToast('처리되었습니다.');await loadAdmin();await adminDetail(id);
+    });};
   } else if(adminKind==='reports') {
     const r=(await apiFetch('/api/admin/reports/'+id)).report;
     const path={USER:'user-profile',MEETING:'detail',POST:'post-detail'}[r.target_type];
@@ -43,8 +51,32 @@ async function adminDetail(id) {
     const suspensionField = r.target_type === 'USER' ? '<label>사용자 정지 기간 (일)<input name="days" type="number" min="1" max="365" value="7"></label>' : '';
     panel.innerHTML=`<h2>신고 #${id}</h2><a class="btn" href="/static/${path}.html?id=${r.target_id}">신고 대상 ${escapeHtml(adminLabel(r.target_type))} #${r.target_id} 확인</a><p>신고자 ID: ${r.reporter_id} (관리자 전용)</p><strong>${escapeHtml(r.reason)}</strong><p class="feature-copy">${escapeHtml(r.detail)}</p><p>처리자: ${escapeHtml(r.processed_by||'-')} · ${escapeHtml(r.processed_at||'-')}</p><p class="feature-copy">${escapeHtml(r.process_note||'')}</p><form id="reportModeration"><label>처리 상태<select name="status"><option value="IN_REVIEW" ${r.status==='IN_REVIEW'?'selected':''}>검토 중</option><option value="RESOLVED" ${r.status==='RESOLVED'?'selected':''}>처리 완료</option><option value="DISMISSED" ${r.status==='DISMISSED'?'selected':''}>기각</option></select></label><label>함께 실행할 조치<select name="action"><option value="NONE">조치 없음</option><option value="${action}">${escapeHtml(adminLabel(action))}</option></select></label>${suspensionField}<label>관리자 메모<textarea name="process_note" maxlength="1000" required></textarea></label><button class="btn blue" ${['RESOLVED','DISMISSED'].includes(r.status)?'disabled':''}>처리 저장</button></form>`;
     document.getElementById('reportModeration').onsubmit=e=>{e.preventDefault();featureAction(async()=>{
-      const f=e.target;const payload={status:f.status.value,action:f.action.value,process_note:f.process_note.value};if(f.days)payload.days=Number(f.days.value);await apiFetch('/api/admin/reports/'+id,jsonOptions('PATCH',payload));showToast('처리했습니다.');await loadAdmin();await adminDetail(id);
+      const f=e.target;const actionValue=e.submitter?.value||f.action?.value;if(!actionValue)return;const payload={status:actionValue==='DISMISS_REPORT'?'DISMISSED':'RESOLVED',action:actionValue,process_note:f.process_note.value};if(f.days)payload.days=Number(f.days.value);await apiFetch('/api/admin/reports/'+id,jsonOptions('PATCH',payload));showToast('처리했습니다.');await loadAdmin();await adminDetail(id);
     });};
+    if (r.target_type === 'MEETING') {
+      const form = document.getElementById('reportModeration');
+      form.status.closest('label').remove();
+      form.action.closest('label').firstChild.textContent='실행할 조치';
+      form.action.innerHTML='<option value="" selected disabled>조치를 선택하세요</option><option value="DISMISS_REPORT">기각</option><option value="CANCEL_MEETING">모임 취소</option>';
+      form.action.required=true;
+    } else if (r.target_type === 'USER') {
+      const form = document.getElementById('reportModeration');
+      form.status.closest('label').remove();
+      const actionLabel = form.action.closest('label');
+      actionLabel.outerHTML='<button class="btn danger report-action-btn" type="submit" name="action" value="SUSPEND_USER">정지</button> <button class="btn report-action-btn" type="submit" name="action" value="DISMISS_REPORT">기각</button>';
+      form.querySelector('button.btn.blue')?.remove();
+      const actionButtons = [...form.querySelectorAll('button[name="action"]')];
+      const actionRow = document.createElement('div');
+      actionRow.className = 'report-actions';
+      form.append(actionRow);
+      actionRow.append(...actionButtons);
+    } else {
+      const form = document.getElementById('reportModeration');
+      form.status.closest('label').remove();
+      form.action.closest('label').firstChild.textContent='실행할 조치';
+      form.action.innerHTML='<option value="" selected disabled>조치를 선택하세요</option><option value="DISMISS_REPORT">기각</option><option value="DELETE_POST">삭제</option>';
+      form.action.required=true;
+    }
   } else {
     const isPost=adminKind==='posts';
     panel.innerHTML=`<h2>${isPost?'게시글 삭제':'모임 취소'} #${id}</h2><a class="btn" href="/static/${isPost?'post-detail':'detail'}.html?id=${id}">내용 확인</a><form id="contentModeration"><label>관리 사유<textarea name="reason" required maxlength="1000"></textarea></label><button class="btn danger">${isPost?'삭제':'취소'} 실행</button></form>`;

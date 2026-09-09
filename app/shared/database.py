@@ -9,7 +9,7 @@ def get_db_connection():
         password=os.getenv("DB_PASSWORD"),
         database=os.getenv("DB_NAME"),
         charset="utf8mb4",
-        time_zone="+00:00",
+        time_zone="+09:00",
     )
 
     return connection

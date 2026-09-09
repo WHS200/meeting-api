@@ -38,10 +38,10 @@ def propose_sport():
         if cursor.fetchone():
             raise APIError("Sport name already proposed.", 409)
         cursor.execute("""SELECT COUNT(*) AS count FROM sport_proposals WHERE created_by = %s
-            AND created_at >= UTC_DATE() AND created_at < UTC_DATE() + INTERVAL 1 DAY""", (user_id,))
+            AND created_at >= CURRENT_DATE() AND created_at < CURRENT_DATE() + INTERVAL 1 DAY""", (user_id,))
         if cursor.fetchone()["count"] >= 5:
             raise APIError("Daily sport proposal limit reached.", 429)
-        cursor.execute("INSERT INTO sport_proposals (sport_name,created_by,created_at) VALUES (%s,%s,UTC_TIMESTAMP())", (name, user_id))
+        cursor.execute("INSERT INTO sport_proposals (sport_name,created_by,created_at) VALUES (%s,%s,CURRENT_TIMESTAMP())", (name, user_id))
         proposal_id = cursor.lastrowid
     return {"proposal_id": proposal_id, "status": "PENDING_REVIEW"}, 201
 
@@ -104,7 +104,7 @@ def review_proposal(proposal_id, action):
             active_sport(cursor, resolved)
         status = {"approve": "APPROVED", "reject": "REJECTED", "merge": "MERGED"}[action]
         cursor.execute("""UPDATE sport_proposals SET status = %s, resolved_sport_id = %s,
-            reviewed_by = %s, reviewed_at = UTC_TIMESTAMP(), review_note = %s WHERE proposal_id = %s""",
+            reviewed_by = %s, reviewed_at = CURRENT_TIMESTAMP(), review_note = %s WHERE proposal_id = %s""",
             (status, resolved, session["user_id"], note, proposal_id))
         audit(cursor, status, "SPORT_PROPOSAL", proposal_id, note)
     return {"status": status, "sport_id": resolved}

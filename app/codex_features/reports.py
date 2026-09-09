@@ -26,17 +26,17 @@ def create_report():
         if (target_type == "USER" and target_id == reporter) or (target_type == "POST" and target["author_id"] == reporter):
             raise APIError("Cannot report yourself or your post.", 409)
         cursor.execute("""SELECT COUNT(*) AS count FROM reports WHERE reporter_id = %s
-            AND created_at >= UTC_DATE() AND created_at < UTC_DATE() + INTERVAL 1 DAY""", (reporter,))
+            AND created_at >= CURRENT_DATE() AND created_at < CURRENT_DATE() + INTERVAL 1 DAY""", (reporter,))
         if cursor.fetchone()["count"] >= 10:
             raise APIError("Daily report limit reached.", 429)
         cursor.execute("""SELECT 1 FROM reports WHERE reporter_id = %s AND target_type = %s
-            AND target_id = %s AND created_at > UTC_TIMESTAMP() - INTERVAL 24 HOUR LIMIT 1""",
+            AND target_id = %s AND created_at > CURRENT_TIMESTAMP() - INTERVAL 24 HOUR LIMIT 1""",
             (reporter, target_type, target_id))
         if cursor.fetchone():
             raise APIError("Already reported this target within 24 hours.", 409)
         cursor.execute("""INSERT INTO reports (reporter_id, target_type, target_id,
             target_user_id, target_meeting_id, target_post_id, reason, detail, created_at)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,UTC_TIMESTAMP())""",
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,CURRENT_TIMESTAMP())""",
             (reporter, target_type, target_id, target_id if target_type == "USER" else None,
              target_id if target_type == "MEETING" else None, target_id if target_type == "POST" else None, reason, detail))
         report_id = cursor.lastrowid

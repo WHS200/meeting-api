@@ -29,7 +29,7 @@ def connect():
         password=os.environ["DB_PASSWORD"],
         database=os.environ["DB_NAME"],
         charset="utf8mb4",
-        time_zone="+00:00",
+        time_zone="+09:00",
     )
 
 

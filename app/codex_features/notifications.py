@@ -8,7 +8,7 @@ notifications_bp = Blueprint("notifications", __name__, url_prefix="/api/notific
 def notify(cursor, user_id, event_type, message, target_type=None, target_id=None):
     """Always use the caller's cursor: domain change and notification commit together."""
     cursor.execute("""INSERT INTO notifications (user_id, event_type, message, target_type, target_id, created_at)
-        VALUES (%s,%s,%s,%s,%s,UTC_TIMESTAMP())""", (user_id, event_type, message, target_type, target_id))
+        VALUES (%s,%s,%s,%s,%s,CURRENT_TIMESTAMP())""", (user_id, event_type, message, target_type, target_id))
 
 
 def notify_meeting_members(cursor, meeting_id):
@@ -64,7 +64,7 @@ def read_notification(notification_id):
         cursor.execute("SELECT notification_id FROM notifications WHERE notification_id = %s AND user_id = %s FOR UPDATE", (notification_id, session["user_id"]))
         if not cursor.fetchone():
             raise APIError("Notification not found.", 404)
-        cursor.execute("""UPDATE notifications SET read_at = COALESCE(read_at, UTC_TIMESTAMP())
+        cursor.execute("""UPDATE notifications SET read_at = COALESCE(read_at, CURRENT_TIMESTAMP())
             WHERE notification_id = %s AND user_id = %s""", (notification_id, session["user_id"]))
     return {"message": "Notification read."}
 
@@ -73,5 +73,5 @@ def read_notification(notification_id):
 @login_required
 def read_all():
     with transaction() as cursor:
-        cursor.execute("UPDATE notifications SET read_at = UTC_TIMESTAMP() WHERE user_id = %s AND read_at IS NULL", (session["user_id"],))
+        cursor.execute("UPDATE notifications SET read_at = CURRENT_TIMESTAMP() WHERE user_id = %s AND read_at IS NULL", (session["user_id"],))
     return {"message": "All notifications read."}

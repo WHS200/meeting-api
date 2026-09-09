@@ -1,4 +1,4 @@
-from datetime import datetime, time, timedelta
+from datetime import datetime, time, timedelta, timezone
 
 from flask import Blueprint, request, session
 
@@ -127,6 +127,13 @@ def _validate_meeting(data, require_status=False):
     except (TypeError, ValueError):
         return {"message": "meeting_time should be HH:MM."}, 400
 
+    if not require_status:
+        start_at = datetime.strptime(
+            f'{data["meeting_date"]} {data["meeting_time"]}', "%Y-%m-%d %H:%M"
+        ).replace(tzinfo=timezone(timedelta(hours=9)))
+        if start_at <= datetime.now(timezone(timedelta(hours=9))):
+            return {"message": "meeting start time must be in the future."}, 400
+
     if not isinstance(data["approval_type"], str) or data["approval_type"] not in APPROVAL_TYPES:
         return {"message": "approval_type must be INSTANT or APPROVAL."}, 400
     required_skill_level = data.get("required_skill_level")
@@ -186,7 +193,7 @@ def get_meetings():
     try:
         cursor.execute("""UPDATE meetings SET status = 'COMPLETED'
             WHERE status IN ('RECRUITING','CLOSED')
-            AND TIMESTAMP(meeting_date, end_time) <= UTC_TIMESTAMP()""")
+            AND TIMESTAMP(meeting_date, end_time) <= CURRENT_TIMESTAMP()""")
         cursor.execute(sql, tuple(params))
         meetings = [_serialize_meeting(meeting) for meeting in cursor.fetchall()]
         connection.commit()

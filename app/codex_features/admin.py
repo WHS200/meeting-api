@@ -23,7 +23,7 @@ def admin_required(function):
 
 
 def check_active_user(cursor, user_id):
-    cursor.execute("""SELECT status, (suspended_until IS NOT NULL AND suspended_until <= UTC_TIMESTAMP()) AS expired
+    cursor.execute("""SELECT status, (suspended_until IS NOT NULL AND suspended_until <= CURRENT_TIMESTAMP()) AS expired
         FROM users WHERE user_id = %s FOR UPDATE""", (user_id,))
     user = cursor.fetchone()
     if not user or user["status"] == "DELETED":
@@ -32,7 +32,7 @@ def check_active_user(cursor, user_id):
         if not user["expired"]:
             raise APIError("Account is suspended.", 403)
         cursor.execute("""UPDATE users SET status = 'ACTIVE', suspended_until = NULL
-            WHERE user_id = %s AND status = 'SUSPENDED' AND suspended_until <= UTC_TIMESTAMP()""", (user_id,))
+            WHERE user_id = %s AND status = 'SUSPENDED' AND suspended_until <= CURRENT_TIMESTAMP()""", (user_id,))
 
 
 def socket_user_active(user_id):
@@ -46,7 +46,7 @@ def socket_user_active(user_id):
 
 def audit(cursor, action, target_type, target_id, reason):
     cursor.execute("""INSERT INTO admin_actions (admin_id, action, target_type, target_id, reason, created_at)
-        VALUES (%s,%s,%s,%s,%s,UTC_TIMESTAMP())""", (session["user_id"], action, target_type, target_id, reason))
+        VALUES (%s,%s,%s,%s,%s,CURRENT_TIMESTAMP())""", (session["user_id"], action, target_type, target_id, reason))
 
 
 def suspend_user(cursor, user_id, days, reason):
@@ -57,7 +57,7 @@ def suspend_user(cursor, user_id, days, reason):
         raise APIError("User not found.", 404)
     if user["role"] == "ADMIN":
         raise APIError("ADMIN accounts cannot be suspended through this API.", 403)
-    cursor.execute("""UPDATE users SET status = 'SUSPENDED', suspended_until = UTC_TIMESTAMP() + INTERVAL %s DAY,
+    cursor.execute("""UPDATE users SET status = 'SUSPENDED', suspended_until = CURRENT_TIMESTAMP() + INTERVAL %s DAY,
         suspension_reason = %s WHERE user_id = %s""", (days, reason, user_id))
     audit(cursor, "SUSPEND", "USER", user_id, reason)
 
@@ -80,7 +80,7 @@ def remove_post(cursor, post_id, reason):
     cursor.execute("SELECT post_id FROM community_posts WHERE post_id = %s AND deleted_at IS NULL FOR UPDATE", (post_id,))
     if not cursor.fetchone():
         raise APIError("Post not found.", 404)
-    cursor.execute("UPDATE community_posts SET deleted_at = UTC_TIMESTAMP() WHERE post_id = %s", (post_id,))
+    cursor.execute("UPDATE community_posts SET deleted_at = CURRENT_TIMESTAMP() WHERE post_id = %s", (post_id,))
     audit(cursor, "DELETE", "POST", post_id, reason)
 
 
@@ -221,7 +221,11 @@ def process_report(report_id):
     data = body()
     status = choice(data.get("status"), ("IN_REVIEW", "RESOLVED", "DISMISSED"), "status")
     note = text_field(data, "process_note", 1, 1000)
-    action = choice(data.get("action", "NONE"), ("NONE", "SUSPEND_USER", "CANCEL_MEETING", "DELETE_POST"), "action")
+    action = choice(data.get("action", "NONE"), ("NONE", "DISMISS_REPORT", "SUSPEND_USER", "CANCEL_MEETING", "DELETE_POST"), "action")
+    if action == "DISMISS_REPORT":
+        status = "DISMISSED"
+    elif action in ("SUSPEND_USER", "CANCEL_MEETING", "DELETE_POST"):
+        status = "RESOLVED"
     if action != "NONE" and status != "RESOLVED":
         raise APIError("A moderation action requires RESOLVED status.")
     suspended_id = None
@@ -233,12 +237,14 @@ def process_report(report_id):
         if row["status"] in ("RESOLVED", "DISMISSED"):
             raise APIError("Report already completed.", 409)
         if action != "NONE":
-            expected = {"SUSPEND_USER": "USER", "CANCEL_MEETING": "MEETING", "DELETE_POST": "POST"}[action]
-            if row["target_type"] != expected:
+            expected = {"SUSPEND_USER": "USER", "CANCEL_MEETING": "MEETING", "DELETE_POST": "POST"}.get(action)
+            if expected and row["target_type"] != expected:
                 raise APIError("Action does not match report target.")
             # Only the target stored in the report can be acted on. Ignore caller-supplied IDs.
             target_id = row["target_id"]
-            if action == "SUSPEND_USER":
+            if action == "DISMISS_REPORT":
+                pass
+            elif action == "SUSPEND_USER":
                 suspend_user(cursor, target_id, data.get("days"), note)
                 suspended_id = target_id
             elif action == "CANCEL_MEETING":
@@ -246,7 +252,7 @@ def process_report(report_id):
             else:
                 remove_post(cursor, target_id, note)
         cursor.execute("""UPDATE reports SET status = %s, processed_by = %s,
-            processed_at = UTC_TIMESTAMP(), process_note = %s WHERE report_id = %s""",
+            processed_at = CURRENT_TIMESTAMP(), process_note = %s WHERE report_id = %s""",
             (status, session["user_id"], note, report_id))
         audit(cursor, status, "REPORT", report_id, note)
         if status in ("RESOLVED", "DISMISSED"):

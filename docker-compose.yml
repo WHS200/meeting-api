@@ -9,6 +9,7 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      TZ: Asia/Seoul
 
     volumes:
       - mysql_data:/var/lib/mysql
@@ -40,6 +41,7 @@ services:
       DB_NAME: ${MYSQL_DATABASE}
       SECRET_KEY: ${SECRET_KEY}
       S3_BUCKET_NAME: ${S3_BUCKET_NAME}
+      TZ: Asia/Seoul
 
     ports:
       - '127.0.0.1:5000:5000'

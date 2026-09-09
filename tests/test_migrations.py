@@ -91,7 +91,7 @@ def mysql_connection(database):
     return mysql.connector.connect(
         host="127.0.0.1", port=int(os.getenv("TEST_MYSQL_PORT", "3307")),
         user="root", password=os.getenv("TEST_MYSQL_PASSWORD", ""),
-        database=database, charset="utf8mb4", time_zone="+00:00"
+        database=database, charset="utf8mb4", time_zone="+09:00"
     )
 
 

@@ -8,7 +8,7 @@ def expire_meeting_if_needed(cursor, meeting):
     if meeting and meeting["status"] in ("RECRUITING", "CLOSED"):
         cursor.execute("""UPDATE meetings SET status = 'COMPLETED'
             WHERE meeting_id = %s AND status IN ('RECRUITING','CLOSED')
-            AND TIMESTAMP(meeting_date, end_time) <= UTC_TIMESTAMP()""", (meeting["meeting_id"],))
+            AND TIMESTAMP(meeting_date, end_time) <= CURRENT_TIMESTAMP()""", (meeting["meeting_id"],))
         if cursor.rowcount:
             meeting["status"] = "COMPLETED"
 
@@ -150,7 +150,7 @@ def update_pending_status(cursor, meeting_id, target_user_id, status):
             """
             UPDATE meeting_participants
             SET participation_status = %s,
-                approved_at = UTC_TIMESTAMP()
+                approved_at = CURRENT_TIMESTAMP()
             WHERE meeting_id = %s
             AND user_id = %s
             """,

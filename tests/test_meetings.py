@@ -70,6 +70,9 @@ class MeetingsApiTest(unittest.TestCase):
         patcher = patch("app.meetings_gyudong.meetings.lock_schedule")
         patcher.start()
         self.addCleanup(patcher.stop)
+        overlap_patcher = patch("app.meetings_gyudong.meetings.ensure_no_overlap")
+        overlap_patcher.start()
+        self.addCleanup(overlap_patcher.stop)
         app = Flask(__name__)
         app.config.update(TESTING=True, SECRET_KEY="test-secret")
         app.register_blueprint(meetings_bp)
@@ -80,7 +83,7 @@ class MeetingsApiTest(unittest.TestCase):
             "title": "한강 러닝",
             "description": "5km 러닝",
             "sport_id": 1,
-            "meeting_date": "2026-08-30",
+            "meeting_date": "2099-08-30",
             "meeting_time": "19:30",
             "end_time": "20:30",
             "location": "여의도",
@@ -152,6 +155,13 @@ class MeetingsApiTest(unittest.TestCase):
         self.assertTrue(connection.rolled_back)
         self.assertFalse(connection.committed)
 
+    def test_create_meeting_rejects_past_start_time(self):
+        self._login()
+        payload = self._valid_meeting_payload()
+        payload.update(meeting_date="2000-01-01", meeting_time="10:00", end_time="11:00")
+        response = self.client.post("/api/meetings", json=payload)
+        self.assertEqual(response.status_code, 400)
+
     def test_delete_meeting_relies_on_foreign_key_cascades(self):
         self._login(user_id=7)
         cursor = FakeCursor(one={
@@ -193,7 +203,9 @@ class MeetingsApiTest(unittest.TestCase):
             response.get_json()["meetings"][0]["meeting_time"],
             "19:30",
         )
-        sql, params = cursor.executed[0]
+        sql, params = next(
+            (sql, params) for sql, params in cursor.executed if "m.title LIKE %s" in sql
+        )
         self.assertIn("m.title LIKE %s", sql)
         self.assertEqual(params, ("%한강%", "%한강%", "RECRUITING"))
 

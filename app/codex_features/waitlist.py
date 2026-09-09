@@ -65,10 +65,10 @@ def validate_meeting_update(cursor, meeting_id, data):
 def enqueue_waiter(cursor, meeting_id, user_id, from_pending=False):
     if from_pending:
         cursor.execute("""UPDATE meeting_participants SET participation_status = 'WAITING',
-            waiting_at = UTC_TIMESTAMP(6) WHERE meeting_id = %s AND user_id = %s AND participation_status = 'PENDING'""", (meeting_id, user_id))
+            waiting_at = CURRENT_TIMESTAMP(6) WHERE meeting_id = %s AND user_id = %s AND participation_status = 'PENDING'""", (meeting_id, user_id))
     else:
         cursor.execute("""INSERT INTO meeting_participants (meeting_id,user_id,participation_status,waiting_at)
-            VALUES (%s,%s,'WAITING',UTC_TIMESTAMP(6))""", (meeting_id, user_id))
+            VALUES (%s,%s,'WAITING',CURRENT_TIMESTAMP(6))""", (meeting_id, user_id))
 
 
 def promote_waiters(cursor, meeting):
@@ -95,7 +95,7 @@ def promote_waiters(cursor, meeting):
         if has_overlap(cursor, user_id, meeting):
             continue
         cursor.execute("""UPDATE meeting_participants SET participation_status = 'APPROVED',
-            approved_at = UTC_TIMESTAMP(), waiting_at = NULL
+            approved_at = CURRENT_TIMESTAMP(), waiting_at = NULL
             WHERE meeting_id = %s AND user_id = %s AND participation_status = 'WAITING'""", (meeting["meeting_id"], user_id))
         add_chat_room_member(cursor, meeting["meeting_id"], user_id)
         notify(cursor, user_id, "WAITLIST_PROMOTED", "대기 중인 모임의 참여자로 승급되었습니다.", "MEETING", meeting["meeting_id"])
