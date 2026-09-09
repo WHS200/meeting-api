@@ -133,7 +133,9 @@ class ParticipationChatIntegrationTest(unittest.TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        participant_sql, participant_params = cursor.executed[1]
+        participant_sql, participant_params = next(
+            (sql, params) for sql, params in cursor.executed if "LEFT JOIN user_sports" in sql
+        )
         self.assertIn("LEFT JOIN user_sports", participant_sql)
         self.assertIn("us.skill_level", participant_sql)
         self.assertEqual(participant_params, (3, 10))
@@ -309,6 +311,16 @@ class ParticipationChatIntegrationTest(unittest.TestCase):
             2,
             20
         )
+
+    def test_host_cannot_use_participant_cancel_endpoint(self):
+        response, _, cursor = self._request(
+            "DELETE",
+            "/api/meetings/10/participants/me",
+            user_id=1,
+            one_values=[self._meeting(), None],
+        )
+        self.assertEqual(response.status_code, 404)
+        self.assertNotIn("UPDATE meeting_participants", self._sql(cursor))
 
     def test_kick_updates_status_and_removes_chat_member(self):
         def assert_committed_before_socket_removal(

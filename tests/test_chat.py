@@ -100,6 +100,40 @@ class ChatApiTest(unittest.TestCase):
         self.assertIn("direct_user.nickname AS direct_nickname", sql)
         self.assertEqual(params, (1, 1))
 
+    def test_meeting_room_includes_status(self):
+        cursor = FakeCursor(many=[{
+            "chat_room_id": 10, "room_type": "MEETING", "meeting_id": 5,
+            "meeting_title": "Tennis", "meeting_status": "RECRUITING",
+            "meeting_host_id": 3,
+            "direct_nickname": None, "direct_profile_image": None,
+        }])
+        connection = FakeConnection(cursor)
+        with patch("app.chat_dahyun.chat.get_db_connection", return_value=connection):
+            response = self.client.get("/api/chat/rooms")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["chat_rooms"][0]["meeting_status"], "RECRUITING")
+        self.assertIn("m.status AS meeting_status", cursor.executed[0][0])
+        self.assertIn("m.host_id AS meeting_host_id", cursor.executed[0][0])
+
+    def test_messages_cursor_returns_ascending_page_and_cursor(self):
+        cursor = FakeCursor(
+            one_values=[{"member": 1}],
+            many=[
+                {"message_id": 10, "chat_room_id": 3, "sender_id": 1, "content": "10", "created_at": "2026-08-26 12:00:10"},
+                {"message_id": 9, "chat_room_id": 3, "sender_id": 1, "content": "9", "created_at": "2026-08-26 12:00:09"},
+                {"message_id": 8, "chat_room_id": 3, "sender_id": 1, "content": "8", "created_at": "2026-08-26 12:00:08"},
+            ],
+        )
+        connection = FakeConnection(cursor)
+        with patch("app.chat_dahyun.chat.get_db_connection", return_value=connection):
+            response = self.client.get("/api/chat/rooms/3/messages?limit=2&before_message_id=11")
+        payload = response.get_json()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([m["message_id"] for m in payload["messages"]], [9, 10])
+        self.assertTrue(payload["has_more"])
+        self.assertEqual(payload["next_before_message_id"], 9)
+        self.assertIn("msg.message_id < %s", cursor.executed[1][0])
+
 
 class ChatSocketTest(unittest.TestCase):
     def setUp(self):

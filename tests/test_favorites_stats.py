@@ -14,8 +14,8 @@ class FavoritesStatsTest(MySQLTestCase):
         self.assertEqual(self.client.get('/api/favorites').json['favorites'],[])
 
     def test_stats_are_aggregated_and_unmarked_attendance_not_in_denominator(self):
-        for attendance in ['ATTENDED','NO_SHOW',None]:
-            meeting=self.meeting()
+        for attendance, start in zip(['ATTENDED','NO_SHOW',None], ['10:00','12:00','14:00']):
+            meeting=self.meeting(start=start, end=f"{int(start[:2])+1:02d}:00")
             self.sql("INSERT INTO meeting_participants (meeting_id,user_id,participation_status,attendance_status) VALUES (%s,2,'APPROVED',%s)",(meeting,attendance))
         stats=self.client.get('/api/users/2/stats').json
         self.assertEqual(stats['participation_count'],3)

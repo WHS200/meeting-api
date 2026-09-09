@@ -25,7 +25,7 @@ async function loadDetail() {
 }
 function renderDetail() {
   const requiredSkill = meetingSkillLevelLabel(meeting.required_skill_level);
-  content.innerHTML = `<div class="detail-title"><div><span class="badge">${escapeHtml(meeting.sport_name)}</span><h1>${escapeHtml(meeting.title)}</h1><span class="badge ${meetingStatusClass(meeting.status)}">${meetingStatusLabel(meeting.status)}</span></div></div><div class="info-grid"><div class="info-item"><small>날짜</small><strong>${formatMeetingDate(meeting.meeting_date)}</strong></div><div class="info-item"><small>시간</small><strong>${formatMeetingTime(meeting.meeting_time)} ~ ${formatMeetingTime(meeting.end_time)}</strong></div><div class="info-item"><small>장소</small><strong>${escapeHtml(meeting.location)}</strong></div><div class="info-item"><small>정원</small><strong>${meeting.max_participants}명 (모임장 포함)</strong></div><div class="info-item"><small>실력 조건</small><strong>${escapeHtml(requiredSkill)}</strong></div><div class="info-item"><small>승인 방식</small><strong>${approvalTypeLabel(meeting.approval_type)}</strong></div><div class="info-item"><small>상태</small><strong>${meetingStatusLabel(meeting.status)}</strong></div></div><div class="description">${escapeHtml(meeting.description)}</div><div class="host-box"><div class="avatar">${escapeHtml((meeting.host_name || "?").slice(0, 1))}</div><div class="grow"><strong>${escapeHtml(meeting.host_name)}</strong><div class="subtle">모임장</div></div></div>`;
+  content.innerHTML = `<div class="detail-title"><div><span class="badge">${escapeHtml(meeting.sport_name)}</span><h1>${escapeHtml(meeting.title)}</h1><span class="badge ${meetingStatusClass(meeting.status)}">${meetingStatusLabel(meeting.status)}</span></div></div><div class="info-grid"><div class="info-item"><small>날짜</small><strong>${formatMeetingDate(meeting.meeting_date)}</strong></div><div class="info-item"><small>시간</small><strong>${formatMeetingTime(meeting.meeting_time)} ~ ${formatMeetingTime(meeting.end_time)}</strong></div><div class="info-item"><small>장소</small><strong>${escapeHtml(meeting.location)}</strong></div><div class="info-item"><small>인원</small><strong>${meeting.participant_count || 1} / ${meeting.max_participants}명</strong></div><div class="info-item"><small>남은 자리</small><strong>${meeting.remaining_slots ?? 0}명</strong></div><div class="info-item"><small>실력 조건</small><strong>${escapeHtml(requiredSkill)}</strong></div><div class="info-item"><small>승인 방식</small><strong>${approvalTypeLabel(meeting.approval_type)}</strong></div><div class="info-item"><small>상태</small><strong>${meetingStatusLabel(meeting.status)}</strong></div></div><div class="description">${escapeHtml(meeting.description)}</div><div class="host-box"><div class="avatar">${escapeHtml((meeting.host_name || "?").slice(0, 1))}</div><div class="grow"><strong>${escapeHtml(meeting.host_name)}</strong><div class="subtle">모임장</div></div></div>`;
 }
 function renderGuestActions() {
   side.innerHTML =
@@ -54,8 +54,17 @@ function renderParticipantActions() {
   document.getElementById("cancelButton").onclick = cancelMeeting;
 }
 function renderHostActions() {
-  side.innerHTML = `<h2>모임장 관리</h2><div class="action-stack"><a class="btn" href="edit.html?id=${meetingId}">모임 수정</a><a class="btn" href="chat.html">채팅방 보기</a><button id="deleteMeeting" class="btn danger">모임 삭제</button></div>`;
+  const canChangeStatus = ["RECRUITING", "CLOSED"].includes(meeting.status);
+  side.innerHTML = `<h2>모임장 관리</h2><div class="action-stack"><a class="btn" href="edit.html?id=${meetingId}">모임 수정</a><a class="btn" href="chat.html">채팅방 보기</a>${canChangeStatus ? `<label class="field">모임 상태<select id="meetingStatus"><option value="RECRUITING" ${meeting.status === "RECRUITING" ? "selected" : ""}>모집 중</option><option value="CLOSED" ${meeting.status === "CLOSED" ? "selected" : ""}>모집 마감</option><option value="CANCELED">모임 취소</option></select></label><button id="updateMeetingStatus" class="btn">상태 저장</button>` : ""}<button id="deleteMeeting" class="btn danger">모임 삭제</button></div>`;
   document.getElementById("deleteMeeting").onclick = deleteMeeting;
+  document.getElementById("updateMeetingStatus")?.addEventListener("click", updateMeetingStatus);
+}
+async function updateMeetingStatus() {
+  const status = document.getElementById("meetingStatus").value;
+  try {
+    await apiFetch(`/api/meetings/${meetingId}/status`, { method: "PATCH", body: JSON.stringify({ status }) });
+    await loadDetail();
+  } catch (e) { showToast(e.message); }
 }
 async function joinMeeting() {
   try {
@@ -101,6 +110,10 @@ async function deleteMeeting() {
     await apiFetch(`/api/meetings/${meetingId}`, { method: "DELETE" });
     location.href = "/static/my-meetings.html";
   } catch (e) {
+    if (e.status === 409) {
+      showToast("참여 이력이 있는 모임은 삭제할 수 없습니다. 모임을 취소해주세요.");
+      return;
+    }
     showToast(e.message);
   }
 }

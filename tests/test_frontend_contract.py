@@ -39,3 +39,24 @@ class FrontendContractTest(unittest.TestCase):
         for script in (STATIC / "js").glob("*.js"):
             content = script.read_text(encoding="utf-8")
             self.assertNotRegex(content, re.compile(r"</option\s+value="), script)
+
+    def test_meeting_forms_use_dual_time_range_with_legacy_hidden_fields(self):
+        for page_name in ("create.html", "edit.html"):
+            content = (STATIC / page_name).read_text(encoding="utf-8")
+            self.assertEqual(content.count('data-time-range'), 1, page_name)
+            self.assertIn('data-start-range', content)
+            self.assertIn('data-end-range', content)
+            self.assertIn('name="meeting_time"', content)
+            self.assertIn('name="end_time"', content)
+            self.assertNotIn('name="meeting_time" type="time"', content)
+            self.assertIn('max="95"', content)
+            self.assertIn('step="1"', content)
+            self.assertIn(">00:00</span><span>23:45<", content)
+        script = (STATIC / "js" / "meeting-form.js").read_text(encoding="utf-8")
+        self.assertIn("TIME_STEP_MINUTES = 15", script)
+        self.assertIn("TIME_MAX_INDEX = 95", script)
+        self.assertIn("MIN_DURATION_STEPS = 2", script)
+        self.assertIn("MAX_DURATION_STEPS = 48", script)
+        self.assertIn("index * TIME_STEP_MINUTES", script)
+        self.assertIn("startPct = (startValue / TIME_MAX_INDEX) * 100", script)
+        self.assertIn("fill.style.width", script)

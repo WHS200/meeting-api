@@ -1,4 +1,4 @@
-from flask import Blueprint, session
+from flask import Blueprint, request, session
 
 from app.shared.database import get_db_connection
 from app.shared.decorators import login_required
@@ -39,6 +39,8 @@ def get_chat_rooms():
                 cr.meeting_id,
                 cr.created_at,
                 m.title AS meeting_title,
+                m.status AS meeting_status,
+                m.host_id AS meeting_host_id,
                 direct_user.nickname AS direct_nickname,
                 direct_user.profile_image AS direct_profile_image
             FROM chat_room_members AS crm
@@ -81,6 +83,21 @@ def get_chat_messages(chat_room_id):
         if not _is_chat_room_member(cursor, chat_room_id, user_id):
             return {"message": "Chat room not found or access denied."}, 403
 
+        try:
+            limit = int(request.args.get("limit", 50))
+            if limit < 1 or limit > 100:
+                raise ValueError
+        except (TypeError, ValueError):
+            return {"message": "limit must be between 1 and 100."}, 400
+        before = request.args.get("before_message_id", type=int)
+        params = [chat_room_id]
+        before_clause = ""
+        if before is not None:
+            if before < 1:
+                return {"message": "before_message_id must be positive."}, 400
+            before_clause = " AND msg.message_id < %s"
+            params.append(before)
+        params.append(limit + 1)
         cursor.execute(
             """
             SELECT
@@ -95,11 +112,15 @@ def get_chat_messages(chat_room_id):
             JOIN users AS u
                 ON msg.sender_id = u.user_id
             WHERE msg.chat_room_id = %s
-            ORDER BY msg.created_at ASC, msg.message_id ASC
+            """ + before_clause + """
+            ORDER BY msg.message_id DESC
+            LIMIT %s
             """,
-            (chat_room_id,)
+            tuple(params)
         )
         messages = cursor.fetchall()
+        has_more = len(messages) > limit
+        messages = list(reversed(messages[:limit]))
 
         # S3 이미지 확인
         for message in messages:
@@ -111,7 +132,7 @@ def get_chat_messages(chat_room_id):
         cursor.close()
         connection.close()
 
-    return {"messages": messages}, 200
+    return {"messages": messages, "has_more": has_more, "next_before_message_id": messages[0]["message_id"] if has_more and messages else None}, 200
 
 
 @chat_bp.get("/rooms/<int:chat_room_id>/members")

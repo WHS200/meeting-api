@@ -226,7 +226,7 @@ def process_report(report_id):
         status = "DISMISSED"
     elif action in ("SUSPEND_USER", "CANCEL_MEETING", "DELETE_POST"):
         status = "RESOLVED"
-    if action != "NONE" and status != "RESOLVED":
+    if action not in ("NONE", "DISMISS_REPORT") and status != "RESOLVED":
         raise APIError("A moderation action requires RESOLVED status.")
     suspended_id = None
     with transaction() as cursor:

@@ -52,6 +52,9 @@ def _meeting_select_sql():
             m.status,
             m.created_at,
             m.updated_at
+            ,(SELECT COUNT(*) FROM meeting_participants AS approved_mp
+              WHERE approved_mp.meeting_id = m.meeting_id
+                AND approved_mp.participation_status = 'APPROVED') AS approved_count
         FROM meetings AS m
         JOIN sports AS s ON s.sport_id = m.sport_id
         JOIN users AS u ON u.user_id = m.host_id
@@ -61,6 +64,10 @@ def _meeting_select_sql():
 def _serialize_meeting(meeting):
     if meeting is None:
         return None
+
+    approved_count = int(meeting.get("approved_count") or 0)
+    meeting["participant_count"] = 1 + approved_count
+    meeting["remaining_slots"] = max(int(meeting.get("max_participants") or 0) - meeting["participant_count"], 0)
 
     meeting_time = meeting.get("meeting_time")
 
@@ -156,6 +163,14 @@ def get_meetings():
     meeting_date = request.args.get("date", "").strip()
     location = request.args.get("location", "").strip()
     status = request.args.get("status", "").strip().upper()
+    page_raw, size_raw = request.args.get("page"), request.args.get("size")
+    paged = page_raw is not None or size_raw is not None
+    try:
+        page, size = int(page_raw or 1), int(size_raw or 20)
+        if page < 1 or size < 1 or size > 100:
+            raise ValueError
+    except (TypeError, ValueError):
+        return {"message": "page must be >= 1 and size must be between 1 and 100."}, 400
 
     if meeting_date:
         try:
@@ -186,7 +201,12 @@ def get_meetings():
     sql = _meeting_select_sql()
     if conditions:
         sql += " WHERE " + " AND ".join(conditions)
-    sql += " ORDER BY m.meeting_date ASC, m.meeting_time ASC, m.meeting_id ASC"
+    sql += " ORDER BY m.created_at DESC, m.meeting_id DESC"
+    if paged:
+        sql += " LIMIT %s OFFSET %s"
+        query_params = tuple(params) + (size, (page - 1) * size)
+    else:
+        query_params = tuple(params)
 
     connection = get_db_connection()
     cursor = connection.cursor(dictionary=True)
@@ -194,13 +214,23 @@ def get_meetings():
         cursor.execute("""UPDATE meetings SET status = 'COMPLETED'
             WHERE status IN ('RECRUITING','CLOSED')
             AND TIMESTAMP(meeting_date, end_time) <= CURRENT_TIMESTAMP()""")
-        cursor.execute(sql, tuple(params))
+        total = None
+        if paged:
+            count_sql = "SELECT COUNT(*) AS total FROM meetings AS m"
+            if conditions:
+                count_sql += " WHERE " + " AND ".join(conditions)
+            cursor.execute(count_sql, tuple(params))
+            total = int(cursor.fetchone()["total"])
+        cursor.execute(sql, query_params)
         meetings = [_serialize_meeting(meeting) for meeting in cursor.fetchall()]
         connection.commit()
     finally:
         _close(connection, cursor)
 
-    return {"meetings": meetings, "total": len(meetings)}, 200
+    response = {"meetings": meetings, "total": total if total is not None else len(meetings)}
+    if paged:
+        response.update({"page": page, "size": size, "total_pages": (total + size - 1) // size if total else 0})
+    return response, 200
 
 
 @meetings_bp.get("/<int:meeting_id>")
@@ -313,7 +343,7 @@ def update_meeting(meeting_id):
     data, error = _get_json_body()
     if error:
         return error
-    error = _validate_meeting(data, require_status=True)
+    error = _validate_meeting(data, require_status=False)
     if error:
         return error
 
@@ -345,8 +375,7 @@ def update_meeting(meeting_id):
                 location = %s,
                 max_participants = %s,
                 required_skill_level = %s,
-                approval_type = %s,
-                status = %s
+                approval_type = %s
             WHERE meeting_id = %s
             """,
             (
@@ -360,7 +389,6 @@ def update_meeting(meeting_id):
                 data["max_participants"],
                 data.get("required_skill_level"),
                 data["approval_type"],
-                data["status"],
                 meeting_id,
             ),
         )
@@ -375,6 +403,41 @@ def update_meeting(meeting_id):
     return {"message": "Meeting Updated"}, 200
 
 
+@meetings_bp.patch("/<int:meeting_id>/status")
+@login_required
+def update_meeting_status(meeting_id):
+    data, error = _get_json_body()
+    if error:
+        return error
+    status = data.get("status")
+    if status not in {"RECRUITING", "CLOSED", "CANCELED"}:
+        return {"message": "Invalid meeting status."}, 400
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+    try:
+        lock_schedule(cursor)
+        editor = _get_editor(cursor, meeting_id, session["user_id"])
+        if editor is None:
+            return {"message": "Meeting Not Found"}, 404
+        if editor["host_id"] != session["user_id"] and editor["role"] != "ADMIN":
+            return {"message": "Not Authorized"}, 403
+        cursor.execute("SELECT status FROM meetings WHERE meeting_id = %s FOR UPDATE", (meeting_id,))
+        current = cursor.fetchone()["status"]
+        if current in ("COMPLETED", "CANCELED"):
+            return {"message": "Meeting status cannot be changed."}, 409
+        if (current, status) not in {("RECRUITING", "CLOSED"), ("RECRUITING", "CANCELED"), ("CLOSED", "RECRUITING"), ("CLOSED", "CANCELED")}:
+            return {"message": "Invalid meeting status transition."}, 409
+        notify_meeting_changes(cursor, meeting_id, {"status": status})
+        cursor.execute("UPDATE meetings SET status = %s WHERE meeting_id = %s", (status, meeting_id))
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        _close(connection, cursor)
+    return {"message": "Meeting status updated.", "status": status}, 200
+
+
 @meetings_bp.delete("/<int:meeting_id>")
 @login_required
 def delete_meeting(meeting_id):
@@ -387,6 +450,11 @@ def delete_meeting(meeting_id):
             return {"message": "Meeting Not Found"}, 404
         if editor["host_id"] != session["user_id"] and editor["role"] != "ADMIN":
             return {"message": "Not Authorized"}, 403
+
+        cursor.execute("SELECT COUNT(*) AS count FROM meeting_participants WHERE meeting_id = %s", (meeting_id,))
+        participation_count = cursor.fetchone() or {}
+        if participation_count.get("count", 0):
+            return {"message": "Meeting with participation history cannot be deleted. Cancel the meeting instead."}, 409
 
         cursor.execute("DELETE FROM meetings WHERE meeting_id = %s", (meeting_id,))
         connection.commit()
@@ -407,12 +475,16 @@ def get_my_meetings():
     try:
         cursor.execute(
             _meeting_select_sql()
+            .replace(
+                "FROM meetings AS m",
+                ", CASE WHEN m.host_id = %s THEN 'HOST' ELSE (SELECT mp2.participation_status FROM meeting_participants AS mp2 WHERE mp2.meeting_id = m.meeting_id AND mp2.user_id = %s AND mp2.participation_status IN ('APPROVED','PENDING','WAITING') LIMIT 1) END AS my_participation_status FROM meetings AS m",
+            )
             + " WHERE m.host_id = %s OR EXISTS ("
             + "SELECT 1 FROM meeting_participants AS mp "
             + "WHERE mp.meeting_id = m.meeting_id AND mp.user_id = %s "
-            + "AND mp.participation_status = 'APPROVED')"
+            + "AND mp.participation_status IN ('APPROVED','PENDING','WAITING'))"
             + " ORDER BY m.meeting_date ASC, m.meeting_time ASC, m.meeting_id ASC",
-            (session["user_id"], session["user_id"]),
+            (session["user_id"], session["user_id"], session["user_id"], session["user_id"]),
         )
         meetings = [_serialize_meeting(meeting) for meeting in cursor.fetchall()]
     finally:

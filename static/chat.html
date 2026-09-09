@@ -24,7 +24,7 @@
         </div>
       </div>
     </header>
-    <main class="page-width">
+    <main class="page-width chat-page">
       <div class="page-head">
         <div>
           <h1>모임 채팅</h1>
@@ -33,14 +33,16 @@
       <section class="chat-layout">
         <aside class="chat-sidebar">
           <div class="chat-sidebar-head"><strong>채팅방</strong></div>
-          <section class="chat-room-group"><h3>모임 채팅</h3><div id="meetingRoomList"><div class="empty">모임 채팅방이 없습니다.</div></div></section><section class="chat-room-group"><h3>개인 채팅</h3><div id="directRoomList"><div class="empty">개인 채팅방이 없습니다.</div></div></section>
+          <section class="chat-room-group" id="meetingRoomGroup"><h3>모임 채팅</h3><div id="meetingRoomList" class="chat-room-list"><div class="empty">모임 채팅방이 없습니다.</div></div><button type="button" class="chat-more btn sm" id="meetingRoomMore" hidden>더보기</button></section><section class="chat-room-group" id="directRoomGroup"><h3>개인 채팅</h3><div id="directRoomList" class="chat-room-list"><div class="empty">개인 채팅방이 없습니다.</div></div><button type="button" class="chat-more btn sm" id="directRoomMore" hidden>더보기</button></section>
         </aside>
         <div class="chat-main">
           <header class="chat-main-head">
             <div>
-              <strong id="roomTitle">채팅방을 선택하세요</strong>
+              <a id="roomTitle" class="chat-room-title" href="#">채팅방을 선택하세요</a>
+              <span id="roomStatus" class="chat-status-badge" hidden></span>
               <div id="memberList" class="member-list"></div>
             </div>
+            <button id="leaveRoomButton" type="button" class="btn sm danger" hidden>나가기</button>
           </header>
           <div id="messages" class="messages">
             <div class="empty">채팅방을 선택하세요.</div>

@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 from flask import Flask
 
-from app.meetings_gyudong.meetings import meetings_bp
+from app.meetings_gyudong.meetings import _serialize_meeting, meetings_bp
 
 
 class FakeCursor:
@@ -95,6 +95,13 @@ class MeetingsApiTest(unittest.TestCase):
     def _login(self, user_id=1):
         with self.client.session_transaction() as session:
             session["user_id"] = user_id
+
+    def test_meeting_counts_include_host_and_clamp_remaining_slots(self):
+        meeting = {"max_participants": 6, "approved_count": 2}
+        self.assertEqual(_serialize_meeting(meeting)["participant_count"], 3)
+        self.assertEqual(meeting["remaining_slots"], 3)
+        overfull = {"max_participants": 2, "approved_count": 5}
+        self.assertEqual(_serialize_meeting(overfull)["remaining_slots"], 0)
 
     def test_create_meeting_creates_chat_room_and_adds_host(self):
         self._login(user_id=7)

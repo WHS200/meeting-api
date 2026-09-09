@@ -9,7 +9,7 @@ def expire_meeting_if_needed(cursor, meeting):
         cursor.execute("""UPDATE meetings SET status = 'COMPLETED'
             WHERE meeting_id = %s AND status IN ('RECRUITING','CLOSED')
             AND TIMESTAMP(meeting_date, end_time) <= CURRENT_TIMESTAMP()""", (meeting["meeting_id"],))
-        if cursor.rowcount:
+        if getattr(cursor, "rowcount", 0):
             meeting["status"] = "COMPLETED"
 
 

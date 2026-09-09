@@ -77,11 +77,20 @@
                 <label>날짜</label
                 ><input name="meeting_date" type="date" required />
               </div>
-              <div class="field">
-                <label>시간</label
-                ><input name="meeting_time" type="time" required />
+              <div class="field full">
+                <label>모임 시간</label>
+                <div class="meeting-time-picker" data-time-range>
+                  <div class="time-range-summary"><strong data-time-summary>오후 6:00 - 오후 7:00</strong><span>15분 단위 · 최소 30분 · 최대 12시간</span></div>
+                  <div class="dual-range">
+                    <div class="time-range-track"><div class="time-range-fill"></div></div>
+                    <input type="range" data-start-range min="0" max="95" step="1" value="72" aria-label="모임 시작 시간" />
+                    <input type="range" data-end-range min="0" max="95" step="1" value="76" aria-label="모임 종료 시간" />
+                  </div>
+                  <div class="time-range-labels"><span>00:00</span><span>23:45</span></div>
+                  <input type="hidden" name="meeting_time" value="18:00" required />
+                  <input type="hidden" name="end_time" value="19:00" required />
+                </div>
               </div>
-              <div class="field"><label>종료 시간 (30분~12시간 진행)</label><input name="end_time" type="time" required /></div>
               <div class="field full">
                 <label>장소</label><input name="location" required />
               </div>
