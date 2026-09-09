@@ -4,6 +4,15 @@ from app.shared.database import get_db_connection
 from app.codex_features.waitlist import lock_schedule
 
 
+def expire_meeting_if_needed(cursor, meeting):
+    if meeting and meeting["status"] in ("RECRUITING", "CLOSED"):
+        cursor.execute("""UPDATE meetings SET status = 'COMPLETED'
+            WHERE meeting_id = %s AND status IN ('RECRUITING','CLOSED')
+            AND TIMESTAMP(meeting_date, end_time) <= UTC_TIMESTAMP()""", (meeting["meeting_id"],))
+        if cursor.rowcount:
+            meeting["status"] = "COMPLETED"
+
+
 # 모임 정보와 로그인 사용자 정보 가져오기
 def get_meeting_context(meeting_id, for_update=False):
     user_id = session.get("user_id")
@@ -28,6 +37,7 @@ def get_meeting_context(meeting_id, for_update=False):
         cursor.execute(sql, (meeting_id,))
 
         meeting = cursor.fetchone()
+        expire_meeting_if_needed(cursor, meeting)
 
     except Exception:
         if cursor is not None:

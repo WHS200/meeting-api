@@ -6,6 +6,7 @@ from app.shared.database import get_db_connection
 from app.shared.decorators import login_required
 from app.codex_features.notifications import notify_meeting_changes
 from app.codex_features.waitlist import lock_schedule, validate_duration, validate_meeting_update, promote_waiters, ensure_no_overlap
+from app.participation_euna.helpers import expire_meeting_if_needed
 
 
 meetings_bp = Blueprint("meetings", __name__, url_prefix="/api/meetings")
@@ -183,8 +184,12 @@ def get_meetings():
     connection = get_db_connection()
     cursor = connection.cursor(dictionary=True)
     try:
+        cursor.execute("""UPDATE meetings SET status = 'COMPLETED'
+            WHERE status IN ('RECRUITING','CLOSED')
+            AND TIMESTAMP(meeting_date, end_time) <= UTC_TIMESTAMP()""")
         cursor.execute(sql, tuple(params))
         meetings = [_serialize_meeting(meeting) for meeting in cursor.fetchall()]
+        connection.commit()
     finally:
         _close(connection, cursor)
 
@@ -200,7 +205,10 @@ def get_meeting(meeting_id):
             _meeting_select_sql() + " WHERE m.meeting_id = %s",
             (meeting_id,),
         )
-        meeting = _serialize_meeting(cursor.fetchone())
+        meeting = cursor.fetchone()
+        expire_meeting_if_needed(cursor, meeting)
+        connection.commit()
+        meeting = _serialize_meeting(meeting)
     finally:
         _close(connection, cursor)
 
