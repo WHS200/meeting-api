@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 from flask import Flask
 
+from app.codex_features.helpers import APIError
 from app.meetings_gyudong.meetings import _serialize_meeting, meetings_bp
 
 
@@ -65,6 +66,28 @@ class MeetingCreationCursor(FakeCursor):
         return {"sport_id": 1}
 
 
+class MeetingUpdateCursor(FakeCursor):
+    def __init__(self, overlap=False):
+        super().__init__(many=[])
+        self.overlap = overlap
+        self.current_sql = ""
+
+    def execute(self, sql, params=()):
+        super().execute(sql, params)
+        self.current_sql = sql
+
+    def fetchone(self):
+        if "FROM meetings m" in self.current_sql:
+            return {"meeting_id": 99} if self.overlap else None
+        if "SELECT m.meeting_id, m.host_id" in self.current_sql:
+            return {"meeting_id": 41, "host_id": 1, "role": "USER"}
+        if "SELECT sport_id FROM sports" in self.current_sql:
+            return {"sport_id": 1}
+        if "SELECT host_id FROM meetings" in self.current_sql:
+            return {"host_id": 1}
+        return None
+
+
 class MeetingsApiTest(unittest.TestCase):
     def setUp(self):
         patcher = patch("app.meetings_gyudong.meetings.lock_schedule")
@@ -75,6 +98,7 @@ class MeetingsApiTest(unittest.TestCase):
         self.addCleanup(overlap_patcher.stop)
         app = Flask(__name__)
         app.config.update(TESTING=True, SECRET_KEY="test-secret")
+        app.register_error_handler(APIError, lambda error: ({"message": error.message}, error.status))
         app.register_blueprint(meetings_bp)
         self.client = app.test_client()
 
@@ -190,6 +214,44 @@ class MeetingsApiTest(unittest.TestCase):
         self.assertIn("DELETE FROM meetings", delete_sql[0])
         self.assertNotIn("meeting_participants", delete_sql[0])
         self.assertTrue(connection.committed)
+
+    def test_update_meeting_does_not_require_status(self):
+        self._login()
+        cursor = MeetingUpdateCursor()
+        connection = FakeConnection(cursor)
+
+        with patch(
+            "app.meetings_gyudong.meetings.get_db_connection",
+            return_value=connection,
+        ), patch("app.meetings_gyudong.meetings.notify_meeting_changes"), patch(
+            "app.meetings_gyudong.meetings.promote_waiters"
+        ):
+            response = self.client.put(
+                "/api/meetings/41",
+                json=self._valid_meeting_payload(),
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(connection.committed)
+
+    def test_update_meeting_canceled_body_does_not_skip_overlap_check(self):
+        self._login()
+        cursor = MeetingUpdateCursor(overlap=True)
+        connection = FakeConnection(cursor)
+        payload = self._valid_meeting_payload()
+        payload["status"] = "CANCELED"
+
+        with patch(
+            "app.meetings_gyudong.meetings.get_db_connection",
+            return_value=connection,
+        ), patch("app.meetings_gyudong.meetings.notify_meeting_changes"), patch(
+            "app.meetings_gyudong.meetings.promote_waiters"
+        ):
+            response = self.client.put("/api/meetings/41", json=payload)
+
+        self.assertEqual(response.status_code, 409)
+        self.assertTrue(connection.rolled_back)
+        self.assertFalse(any("SET sport_id" in sql for sql, _ in cursor.executed))
 
     def test_list_meetings(self):
         cursor = FakeCursor(many=[{

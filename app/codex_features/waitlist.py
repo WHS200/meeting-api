@@ -54,12 +54,11 @@ def validate_meeting_update(cursor, meeting_id, data):
     members = cursor.fetchall()
     if len(members) + 1 > data["max_participants"]:
         raise APIError("Capacity cannot be smaller than current participants including host.", 409)
-    if data["status"] != "CANCELED":
-        proposed = dict(data, meeting_id=meeting_id)
-        user_ids.update(member["user_id"] for member in members)
-        for user_id in user_ids:
-            if has_overlap(cursor, user_id, proposed):
-                raise APIError("The new time conflicts with an approved participant's schedule.", 409)
+    proposed = dict(data, meeting_id=meeting_id)
+    user_ids.update(member["user_id"] for member in members)
+    for user_id in user_ids:
+        if has_overlap(cursor, user_id, proposed):
+            raise APIError("The new time conflicts with an approved participant's schedule.", 409)
 
 
 def enqueue_waiter(cursor, meeting_id, user_id, from_pending=False):
