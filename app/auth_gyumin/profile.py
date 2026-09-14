@@ -1,7 +1,13 @@
 import os
 from uuid import uuid4
 
-from flask import (Blueprint, current_app, request, send_from_directory, session,)
+from flask import (
+    Blueprint,
+    current_app,
+    request,
+    send_from_directory,
+    session,
+)
 
 from app.auth_gyumin.users import users_bp
 from app.shared.database import get_db_connection
@@ -14,6 +20,9 @@ from app.shared.s3 import (
 
 
 uploads_bp = Blueprint("uploads", __name__)
+
+# 프로필 이미지 최대 크기: 5MB
+MAX_PROFILE_IMAGE_SIZE = 5 * 1024 * 1024
 
 
 # 프로필 이미지 등록 / 변경
@@ -37,28 +46,42 @@ def upload_profile_image():
     extension = filename.rsplit(".", 1)[1].lower()
 
     # 허용할 확장자
-    if extension not in ("jpg", "jpeg", "png", "webp",):
+    if extension not in ("jpg", "jpeg", "png", "webp"):
         return {"message": "Invalid image file."}, 400
 
     # MIME Content-Type 확인
-    if file.content_type not in ("image/jpeg", "image/png", "image/webp",):
+    if file.content_type not in ("image/jpeg", "image/png", "image/webp"):
         return {"message": "Invalid image content type."}, 400
+
+    # 실제 업로드 파일 크기 확인
+    # stream 끝으로 이동해서 크기를 확인한 뒤
+    # S3 업로드를 위해 다시 처음 위치로 되돌린다.
+    file.stream.seek(0, os.SEEK_END)
+    file_size = file.stream.tell()
+    file.stream.seek(0)
+
+    if file_size > MAX_PROFILE_IMAGE_SIZE:
+        return {
+            "message": "Profile image must be 5MB or smaller."
+        }, 413
 
     s3 = get_s3_client()
     bucket_name = get_s3_bucket_name()
 
     # 같은 파일명이 충돌하지 않도록 UUID 사용
-    stored_filename = (f"{uuid4().hex}.{extension}")
+    stored_filename = f"{uuid4().hex}.{extension}"
 
     # S3 내부 파일 경로
-    s3_key = (f"profile/{stored_filename}")
+    s3_key = f"profile/{stored_filename}"
 
     # S3에 이미지 업로드
     s3.upload_fileobj(
-        file.stream, # 사용자가 업로드한 실제 이미지 데이터
-        bucket_name, # yanawa-profile
-        s3_key, # profile/랜덤UUID.png
-        ExtraArgs={"ContentType": file.content_type} # 이 파일이 image/png 같은 이미지라는 메타 정보
+        file.stream,
+        bucket_name,
+        s3_key,
+        ExtraArgs={
+            "ContentType": file.content_type
+        }
     )
 
     connection = get_db_connection()
@@ -83,13 +106,18 @@ def upload_profile_image():
         if not user:
             # 유효한 사용자가 아니라면
             # 방금 올린 S3 파일 제거
-            s3.delete_object(Bucket=bucket_name, Key=s3_key)
+            s3.delete_object(
+                Bucket=bucket_name,
+                Key=s3_key
+            )
 
             session.clear()
 
-            return {"message": "User not found."}, 401
+            return {
+                "message": "User not found."
+            }, 401
 
-        old_profile_image = (user.get("profile_image"))
+        old_profile_image = user.get("profile_image")
 
         # DB에는 URL이 아니라 S3 key만 저장
         cursor.execute(
@@ -99,7 +127,10 @@ def upload_profile_image():
             WHERE user_id = %s
             AND status != 'DELETED'
             """,
-            (s3_key, user_id,)
+            (
+                s3_key,
+                user_id
+            )
         )
 
         connection.commit()
@@ -109,7 +140,10 @@ def upload_profile_image():
 
         # DB 저장 실패 시
         # 새로 업로드한 S3 파일 제거
-        s3.delete_object(Bucket=bucket_name, Key=s3_key)
+        s3.delete_object(
+            Bucket=bucket_name,
+            Key=s3_key
+        )
 
         raise
 
@@ -124,7 +158,10 @@ def upload_profile_image():
         and old_profile_image != s3_key
     ):
         try:
-            s3.delete_object(Bucket=bucket_name, Key=old_profile_image)
+            s3.delete_object(
+                Bucket=bucket_name,
+                Key=old_profile_image
+            )
         except Exception:
             # 새 프로필 저장 자체는 성공했으므로
             # 기존 파일 삭제 실패로 요청 전체를 실패시키지 않음
@@ -139,6 +176,13 @@ def upload_profile_image():
 # 기존 로컬 이미지 호환용
 @uploads_bp.get("/uploads/profile/<filename>")
 def get_profile_image(filename):
-    profile_upload_folder = os.path.join(current_app.root_path, "uploads", "profile")
+    profile_upload_folder = os.path.join(
+        current_app.root_path,
+        "uploads",
+        "profile"
+    )
 
-    return send_from_directory(profile_upload_folder, filename)
+    return send_from_directory(
+        profile_upload_folder,
+        filename
+    )
