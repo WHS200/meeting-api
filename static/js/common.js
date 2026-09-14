@@ -29,7 +29,11 @@ async function initializeHeader() {
     if (user) {
       document
         .querySelectorAll("[data-user-initial]")
-        .forEach((el) => (el.textContent = (user.nickname || "?").slice(0, 1)));
+        .forEach((el) =>
+          (el.innerHTML = user.profile_image
+            ? `<img src="${escapeHtml(user.profile_image)}" alt="프로필 이미지">`
+            : escapeHtml((user.nickname || "?").slice(0, 1)))
+        );
       document
         .querySelectorAll("[data-user-nickname]")
         .forEach((el) => (el.textContent = user.nickname || "내 프로필"));
