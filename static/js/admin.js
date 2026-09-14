@@ -33,9 +33,6 @@ async function adminDetail(id) {
   if(adminKind==='users') {
     const data=await apiFetch('/api/admin/users/'+id),u=data.user;
     panel.innerHTML=`<h2>${escapeHtml(u.nickname)} · #${u.user_id}</h2><p>${escapeHtml(u.email)} · ${escapeHtml(adminLabel(u.status))} · ${escapeHtml(adminLabel(u.role))}</p><p>정지 종료: ${escapeHtml(u.suspended_until||'-')}</p><p>최근 사유: ${escapeHtml(u.suspension_reason||'-')}</p><form id="userModeration"><label>정지 기간 (1~365일)<input name="days" type="number" min="1" max="365" value="7" required></label><label>처리 사유<textarea name="reason" maxlength="1000" required></textarea></label><button class="btn danger" name="action" value="suspend">기간 정지</button> <button class="btn" name="action" value="unsuspend">정지 해제</button></form><h3>처리 이력</h3>${emptyList(data.actions,a=>`<p>${escapeHtml(adminLabel(a.action))} · ${escapeHtml(a.reason)} · ${escapeHtml(a.created_at)}</p>`)}`;
-    document.getElementById('userModeration').onsubmit=e=>{e.preventDefault();const action=e.submitter.value;featureAction(async()=>{
-      await apiFetch(`/api/admin/users/${id}/${action}`,jsonOptions('POST',{days:Number(e.target.days.value),reason:e.target.reason.value}));showToast('처리했습니다.');await loadAdmin();await adminDetail(id);
-    });};
     const moderation = document.getElementById('userModeration');
     moderation.outerHTML=`<form id="userSuspend"><label>정지 기간 (1~365일)<input name="days" type="number" min="1" max="365" value="7" required></label><label>정지 사유<textarea name="reason" maxlength="1000" required></textarea></label><button class="btn danger">기간 정지</button></form><form id="userUnsuspend"><label>해제 사유<textarea name="reason" maxlength="1000" required></textarea></label><button class="btn">정지 해제</button></form>`;
     document.getElementById('userSuspend').onsubmit=e=>{e.preventDefault();featureAction(async()=>{

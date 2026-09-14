@@ -1,7 +1,7 @@
 import re
 from datetime import datetime
 
-from flask import Blueprint, request, session
+from flask import Blueprint, session
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.shared.database import get_db_connection
