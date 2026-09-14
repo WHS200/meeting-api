@@ -26,18 +26,7 @@ async function initializeHeader() {
     document
       .querySelectorAll("[data-auth-user]")
       .forEach((el) => (el.hidden = !user));
-    if (user) {
-      document
-        .querySelectorAll("[data-user-initial]")
-        .forEach((el) =>
-          (el.innerHTML = user.profile_image
-            ? `<img src="${escapeHtml(user.profile_image)}" alt="프로필 이미지">`
-            : escapeHtml((user.nickname || "?").slice(0, 1)))
-        );
-      document
-        .querySelectorAll("[data-user-nickname]")
-        .forEach((el) => (el.textContent = user.nickname || "내 프로필"));
-    }
+    if (user) renderHeaderUser(user);
   } catch (error) {
     showToast(error.message);
   }
@@ -60,6 +49,33 @@ async function initializeHeader() {
     }),
   );
 }
+function renderHeaderUser(user) {
+  document.querySelectorAll("[data-user-initial]").forEach((el) => {
+    el.innerHTML = avatarContent(user.profile_image, user.nickname);
+  });
+  document.querySelectorAll("[data-user-nickname]").forEach((el) => {
+    el.textContent = user.nickname || "내 프로필";
+  });
+}
+function avatarContent(profileImage, nickname) {
+  const initial = Array.from(String(nickname || "?"))[0];
+  return profileImage
+    ? `<img src="${escapeHtml(profileImage)}" alt="${escapeHtml(nickname || "?")} 프로필" data-avatar-initial="${escapeHtml(initial)}">`
+    : escapeHtml(initial);
+}
+function avatarMarkup(profileImage, nickname, className = "sm") {
+  return `<span class="avatar ${escapeHtml(className)}">${avatarContent(profileImage, nickname)}</span>`;
+}
+function userIdentity(profileImage, nickname) {
+  return `<span class="user-identity">${avatarMarkup(profileImage, nickname)}<span>${escapeHtml(nickname || "?")}</span></span>`;
+}
+// Image errors do not bubble; capture also handles avatars inserted after page load.
+document.addEventListener("error", (event) => {
+  const img = event.target;
+  if (img.tagName === "IMG" && img.hasAttribute("data-avatar-initial")) {
+    img.replaceWith(document.createTextNode(img.dataset.avatarInitial || "?"));
+  }
+}, true);
 function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")

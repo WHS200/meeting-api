@@ -10,7 +10,7 @@
     async function refreshWaiting(){
       const result=await apiFetch(`/api/meetings/${id}/waitlist`);
       const list=document.getElementById('waitingInfo');
-      list.innerHTML=`<h3>정원 대기 ${result.total}명</h3><p class="muted">즉시 승인 모임은 만석일 때 대기자로 등록됩니다. 모임장 승인 방식은 승인 후 대기열에 등록됩니다. 자리가 나면 일정이 겹치지 않는 대기자부터 승급합니다.</p>`+(result.waitlist||[]).map(w=>`<p>${w.position}번째 · ${escapeHtml(w.nickname)}</p>`).join('');
+      list.innerHTML=`<h3>정원 대기 ${result.total}명</h3><p class="muted">즉시 승인 모임은 만석일 때 대기자로 등록됩니다. 모임장 승인 방식은 승인 후 대기열에 등록됩니다. 자리가 나면 일정이 겹치지 않는 대기자부터 승급합니다.</p>`+(result.waitlist||[]).map(w=>`<p>${w.position}번째 · ${userIdentity(w.profile_image, w.nickname)}</p>`).join('');
     }
     window.addEventListener('participation-changed',()=>refreshWaiting().catch(e=>showToast(e.message)));
     await refreshWaiting();

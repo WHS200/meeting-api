@@ -196,6 +196,18 @@ button {
   height: 100%;
   object-fit: cover;
 }
+.avatar.sm {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  font-size: 12px;
+}
+.user-identity {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  vertical-align: middle;
+}
 .shell {
   max-width: 1500px;
   margin: auto;

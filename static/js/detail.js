@@ -25,7 +25,7 @@ async function loadDetail() {
 }
 function renderDetail() {
   const requiredSkill = meetingSkillLevelLabel(meeting.required_skill_level);
-  content.innerHTML = `<div class="detail-title"><div><span class="badge">${escapeHtml(meeting.sport_name)}</span><h1>${escapeHtml(meeting.title)}</h1><span class="badge ${meetingStatusClass(meeting.status)}">${meetingStatusLabel(meeting.status)}</span></div></div><div class="info-grid"><div class="info-item"><small>날짜</small><strong>${formatMeetingDate(meeting.meeting_date)}</strong></div><div class="info-item"><small>시간</small><strong>${formatMeetingTime(meeting.meeting_time)} ~ ${formatMeetingTime(meeting.end_time)}</strong></div><div class="info-item"><small>장소</small><strong>${escapeHtml(meeting.location)}</strong></div><div class="info-item"><small>인원</small><strong>${meeting.participant_count || 1} / ${meeting.max_participants}명</strong></div><div class="info-item"><small>남은 자리</small><strong>${meeting.remaining_slots ?? 0}명</strong></div><div class="info-item"><small>실력 조건</small><strong>${escapeHtml(requiredSkill)}</strong></div><div class="info-item"><small>승인 방식</small><strong>${approvalTypeLabel(meeting.approval_type)}</strong></div><div class="info-item"><small>상태</small><strong>${meetingStatusLabel(meeting.status)}</strong></div></div><div class="description">${escapeHtml(meeting.description)}</div><div class="host-box"><div class="avatar">${escapeHtml((meeting.host_name || "?").slice(0, 1))}</div><div class="grow"><strong>${escapeHtml(meeting.host_name)}</strong><div class="subtle">모임장</div></div></div>`;
+  content.innerHTML = `<div class="detail-title"><div><span class="badge">${escapeHtml(meeting.sport_name)}</span><h1>${escapeHtml(meeting.title)}</h1><span class="badge ${meetingStatusClass(meeting.status)}">${meetingStatusLabel(meeting.status)}</span></div></div><div class="info-grid"><div class="info-item"><small>날짜</small><strong>${formatMeetingDate(meeting.meeting_date)}</strong></div><div class="info-item"><small>시간</small><strong>${formatMeetingTime(meeting.meeting_time)} ~ ${formatMeetingTime(meeting.end_time)}</strong></div><div class="info-item"><small>장소</small><strong>${escapeHtml(meeting.location)}</strong></div><div class="info-item"><small>인원</small><strong>${meeting.participant_count || 1} / ${meeting.max_participants}명</strong></div><div class="info-item"><small>남은 자리</small><strong>${meeting.remaining_slots ?? 0}명</strong></div><div class="info-item"><small>실력 조건</small><strong>${escapeHtml(requiredSkill)}</strong></div><div class="info-item"><small>승인 방식</small><strong>${approvalTypeLabel(meeting.approval_type)}</strong></div><div class="info-item"><small>상태</small><strong>${meetingStatusLabel(meeting.status)}</strong></div></div><div class="description">${escapeHtml(meeting.description)}</div><div class="host-box"><div class="avatar">${avatarContent(meeting.host_profile_image, meeting.host_name)}</div><div class="grow"><strong>${escapeHtml(meeting.host_name)}</strong><div class="subtle">모임장</div></div></div>`;
 }
 function renderGuestActions() {
   side.innerHTML =
@@ -128,13 +128,6 @@ async function loadApprovedPublic() {
     if (e.status !== 401) showToast(e.message);
   }
 }
-async function profileFor(userId) {
-  try {
-    return await apiFetch(`/api/users/${userId}`);
-  } catch {
-    return null;
-  }
-}
 async function loadHostManagement(pending) {
   hostPanel.hidden = false;
   const pendingBody = document.getElementById("pendingBody");
@@ -142,7 +135,7 @@ async function loadHostManagement(pending) {
     ? pending
         .map(
           (p) =>
-            `<tr><td>${escapeHtml(p.nickname)}</td><td>${escapeHtml(p.skill_level ? skillLevelLabel(p.skill_level) : "미등록")}</td><td>승인 대기</td><td><div class="small-gap"><button class="btn sm blue" data-approve="${p.user_id}">승인</button><button class="btn sm danger" data-reject="${p.user_id}">거절</button><a class="btn sm" href="user-profile.html?id=${p.user_id}">프로필</a></div></td></tr>`,
+            `<tr><td>${userIdentity(p.profile_image, p.nickname)}</td><td>${escapeHtml(p.skill_level ? skillLevelLabel(p.skill_level) : "미등록")}</td><td>승인 대기</td><td><div class="small-gap"><button class="btn sm blue" data-approve="${p.user_id}">승인</button><button class="btn sm danger" data-reject="${p.user_id}">거절</button><a class="btn sm" href="user-profile.html?id=${p.user_id}">프로필</a></div></td></tr>`,
         )
         .join("")
     : '<tr><td colspan="4">승인 대기 신청이 없습니다.</td></tr>';
@@ -156,17 +149,12 @@ async function loadHostManagement(pending) {
 }
 async function loadApprovedHost() {
   const d = await apiFetch(`/api/meetings/${meetingId}/participants/approved`);
-  const rows = await Promise.all(
-    d.participants.map(async (p) => ({
-      p,
-      profile: await profileFor(p.user_id),
-    })),
-  );
+  const rows = d.participants;
   document.getElementById("approvedBody").innerHTML = rows.length
     ? rows
         .map(
-          ({ p, profile }) =>
-            `<tr><td>${escapeHtml(profile?.nickname || "-")}</td><td>${p.attendance_status === "ATTENDED" ? "출석" : p.attendance_status === "NO_SHOW" ? "불참" : "미처리"}</td><td><div class="small-gap"><button class="btn sm" data-attend="${p.user_id}" data-value="ATTENDED">출석</button><button class="btn sm" data-attend="${p.user_id}" data-value="NO_SHOW">노쇼</button><button class="btn sm danger" data-kick="${p.user_id}">강퇴</button><a class="btn sm" href="user-profile.html?id=${p.user_id}">프로필</a></div></td></tr>`,
+          (p) =>
+            `<tr><td>${userIdentity(p.profile_image, p.nickname)}</td><td>${p.attendance_status === "ATTENDED" ? "출석" : p.attendance_status === "NO_SHOW" ? "불참" : "미처리"}</td><td><div class="small-gap"><button class="btn sm" data-attend="${p.user_id}" data-value="ATTENDED">출석</button><button class="btn sm" data-attend="${p.user_id}" data-value="NO_SHOW">노쇼</button><button class="btn sm danger" data-kick="${p.user_id}">강퇴</button><a class="btn sm" href="user-profile.html?id=${p.user_id}">프로필</a></div></td></tr>`,
         )
         .join("")
     : '<tr><td colspan="3">승인된 참가자가 없습니다.</td></tr>';

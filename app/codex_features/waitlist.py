@@ -2,6 +2,7 @@
 from datetime import datetime
 from flask import Blueprint, session
 from app.shared.decorators import login_required
+from app.shared.s3 import generate_profile_image_url
 from .admin import check_active_user
 from .helpers import APIError, lock_users, transaction
 from .notifications import notify
@@ -112,11 +113,13 @@ def list_waiters(meeting_id):
         meeting = cursor.fetchone()
         if not meeting:
             raise APIError("Meeting not found.", 404)
-        cursor.execute("""SELECT mp.user_id, mp.waiting_at, u.nickname
+        cursor.execute("""SELECT mp.user_id, mp.waiting_at, u.nickname, u.profile_image
             FROM meeting_participants mp JOIN users u ON u.user_id = mp.user_id
             WHERE mp.meeting_id = %s AND mp.participation_status = 'WAITING'
             ORDER BY mp.waiting_at, mp.user_id""", (meeting_id,))
         rows = cursor.fetchall()
         ranked = [{**row, "position": position} for position, row in enumerate(rows, 1)]
         visible = ranked if meeting["host_id"] == session["user_id"] else [row for row in ranked if row["user_id"] == session["user_id"]]
+        for row in visible:
+            row["profile_image"] = generate_profile_image_url(row.get("profile_image"))
         return {"waitlist": visible, "total": len(rows)}

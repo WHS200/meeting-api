@@ -2,6 +2,7 @@ from flask import Blueprint, request
 
 from app.chat_dahyun.socket_events import remove_user_from_chat_room
 from app.shared.decorators import login_required
+from app.shared.s3 import generate_profile_image_url
 from app.codex_features.notifications import notify
 from app.codex_features.waitlist import ensure_no_overlap, enqueue_waiter, promote_waiters
 from app.participation_euna.helpers import (
@@ -204,6 +205,7 @@ def get_pending_participants(meeting_id):
             SELECT
                 mp.user_id,
                 u.nickname,
+                u.profile_image,
                 mp.participation_status,
                 us.skill_level
             FROM meeting_participants mp
@@ -218,6 +220,8 @@ def get_pending_participants(meeting_id):
         )
 
         participants = cursor.fetchall()
+        for participant in participants:
+            participant["profile_image"] = generate_profile_image_url(participant.get("profile_image"))
 
         return {
             "participants": participants
@@ -356,7 +360,8 @@ def get_approved_participants(meeting_id):
             """
             SELECT
                 mp.*,
-                u.nickname
+                u.nickname,
+                u.profile_image
             FROM meeting_participants mp
             JOIN users u ON mp.user_id = u.user_id
             WHERE mp.meeting_id = %s
@@ -366,6 +371,8 @@ def get_approved_participants(meeting_id):
         )
 
         participants = cursor.fetchall()
+        for participant in participants:
+            participant["profile_image"] = generate_profile_image_url(participant.get("profile_image"))
 
         return {
             "participants": participants

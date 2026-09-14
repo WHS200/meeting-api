@@ -5,9 +5,14 @@ let me = null,
 const avatar = document.getElementById("avatar"),
   sportList = document.getElementById("sportList"),
   sportSelect = document.getElementById("sportSelect");
-async function loadMe() {
+async function loadMe(refresh = false) {
   try {
-    me = await apiFetch("/api/users/me");
+    if (refresh) currentUserPromise = null;
+    me = await getCurrentUser();
+    if (!me) {
+      location.href = "/static/login.html";
+      return;
+    }
     document.getElementById("nicknameText").textContent = me.nickname;
     document.getElementById("regionText").textContent = me.region;
     document.getElementById("loginIdText").textContent = me.login_id;
@@ -18,9 +23,8 @@ async function loadMe() {
     document.getElementById("genderText").textContent = me.gender;
     document.getElementById("nicknameInput").value = me.nickname;
     document.getElementById("regionInput").value = me.region;
-    avatar.innerHTML = me.profile_image
-      ? `<img src="${escapeHtml(me.profile_image)}" alt="프로필 이미지">`
-      : escapeHtml((me.nickname || "?").slice(0, 1));
+    avatar.innerHTML = avatarContent(me.profile_image, me.nickname);
+    renderHeaderUser(me);
   } catch (e) {
     if (e.status === 401) {
       location.href = "/static/login.html";
@@ -111,8 +115,7 @@ document.getElementById("profileForm").addEventListener("submit", async (e) => {
       }),
     });
     showToast(d.message);
-    currentUserPromise = null;
-    await loadMe();
+    await loadMe(true);
   } catch (err) {
     showToast(err.message);
   }
@@ -146,7 +149,7 @@ document.getElementById("imageForm").addEventListener("submit", async (e) => {
       body: fd,
     });
     showToast(d.message);
-    await loadMe();
+    await loadMe(true);
   } catch (err) {
     showToast(err.message);
   }

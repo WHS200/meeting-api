@@ -6,7 +6,7 @@ async function loadPosts(append = false) {
   if (!append) postOffset = 0;
   const query = new URLSearchParams({board:form.board.value, keyword:form.keyword.value, offset:postOffset});
   const data = await apiFetch('/api/community/posts?'+query);
-  const html = emptyList(data.posts, p => `<article class="feature-item"><span class="badge">${escapeHtml(boardLabel(p.board))}</span><h2><a href="/static/post-detail.html?id=${p.post_id}">${escapeHtml(p.title)}</a></h2><p class="muted">${escapeHtml(p.author_nickname)} · ${escapeHtml(p.created_at)}</p></article>`);
+  const html = emptyList(data.posts, p => `<article class="feature-item"><span class="badge">${escapeHtml(boardLabel(p.board))}</span><h2><a href="/static/post-detail.html?id=${p.post_id}">${escapeHtml(p.title)}</a></h2><p class="muted">${userIdentity(p.author_profile_image, p.author_nickname)} · ${escapeHtml(p.created_at)}</p></article>`);
   const list = document.getElementById('postList');
   if (append) list.insertAdjacentHTML('beforeend', html); else list.innerHTML = html;
   postOffset += data.posts.length;

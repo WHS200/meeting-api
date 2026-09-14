@@ -4,4 +4,4 @@ async function featureAction(task) {
 }
 function jsonOptions(method, body) { return {method, ...(body === undefined ? {} : {body:JSON.stringify(body)})}; }
 function emptyList(rows, render) { return rows.length ? rows.map(render).join('') : '<p class="muted empty">아직 내역이 없습니다.</p>'; }
-function userLabel(user) { return `<a href="/static/user-profile.html?id=${Number(user.user_id)}">${escapeHtml(user.nickname)}</a>`; }
+function userLabel(user) { return `<a href="/static/user-profile.html?id=${Number(user.user_id)}">${userIdentity(user.profile_image, user.nickname)}</a>`; }

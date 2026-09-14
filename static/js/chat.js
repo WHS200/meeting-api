@@ -41,9 +41,7 @@ async function startChat() {
 
 function roomButton(room) {
   const title = room.meeting_title || room.direct_nickname || (room.room_type === "DIRECT" ? `개인 채팅 #${room.chat_room_id}` : `모임 채팅방 #${room.chat_room_id}`);
-  const avatar = room.direct_profile_image
-    ? `<img src="${escapeHtml(room.direct_profile_image)}" alt="">`
-    : escapeHtml((room.meeting_title || room.direct_nickname || "채").slice(0, 1));
+  const avatar = avatarContent(room.direct_profile_image, room.room_type === "DIRECT" ? room.direct_nickname : room.meeting_title || "채");
   const status = room.room_type !== "DIRECT" && meetingStatusLabels[room.meeting_status]
     ? `<span class="chat-status-badge status-${String(room.meeting_status).toLowerCase()}">${meetingStatusLabels[room.meeting_status]}</span>` : "";
   const archived = room.room_type !== "DIRECT" && ["COMPLETED", "CANCELED"].includes(room.meeting_status) ? " archived" : "";
@@ -136,7 +134,7 @@ async function openRoom(room) {
 }
 
 function renderMembers(members) {
-  memberList.innerHTML = members.map((m) => `<span class="member-pill">${escapeHtml(m.nickname)}</span>`).join("");
+  memberList.innerHTML = members.map((m) => `<span class="member-pill">${userIdentity(m.profile_image, m.nickname)}</span>`).join("");
 }
 function appendMessage(m, prepend = false) {
   if (renderedMessageIds.has(Number(m.message_id))) return;
@@ -144,8 +142,8 @@ function appendMessage(m, prepend = false) {
   const mine = m.sender_nickname === me.nickname;
   const senderName = m.sender_nickname || `사용자 ${m.sender_id}`;
   const senderId = Number(m.sender_id);
-  const avatarContent = m.sender_profile_image ? `<img src="${escapeHtml(m.sender_profile_image)}" alt="${escapeHtml(senderName)} 프로필">` : escapeHtml(senderName.slice(0, 1));
-  const avatar = mine ? "" : `<a class="avatar chat-profile-avatar" href="user-profile.html?id=${senderId}" aria-label="${escapeHtml(senderName)} 프로필 보기">${avatarContent}</a>`;
+  const senderAvatar = avatarContent(m.sender_profile_image, m.sender_nickname);
+  const avatar = mine ? "" : `<a class="avatar chat-profile-avatar" href="user-profile.html?id=${senderId}" aria-label="${escapeHtml(senderName)} 프로필 보기">${senderAvatar}</a>`;
   const div = document.createElement("div");
   div.className = `message ${mine ? "mine" : ""}`;
   div.innerHTML = `${avatar}<div class="bubble"><strong>${escapeHtml(senderName)}</strong><div>${escapeHtml(m.content)}</div><div class="message-meta">${escapeHtml(String(m.created_at || "").replace("T", " "))}</div></div>`;

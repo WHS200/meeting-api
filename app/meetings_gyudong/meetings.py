@@ -4,6 +4,7 @@ from flask import Blueprint, request, session
 
 from app.shared.database import get_db_connection
 from app.shared.decorators import login_required
+from app.shared.s3 import generate_profile_image_url
 from app.codex_features.notifications import notify_meeting_changes
 from app.codex_features.waitlist import lock_schedule, validate_duration, validate_meeting_update, promote_waiters, ensure_no_overlap
 from app.participation_euna.helpers import expire_meeting_if_needed
@@ -42,6 +43,7 @@ def _meeting_select_sql():
             s.sport_name,
             m.host_id,
             u.nickname AS host_name,
+            u.profile_image AS host_profile_image,
             m.meeting_date,
             m.meeting_time,
             m.end_time,
@@ -65,6 +67,7 @@ def _serialize_meeting(meeting):
     if meeting is None:
         return None
 
+    meeting["host_profile_image"] = generate_profile_image_url(meeting.get("host_profile_image"))
     approved_count = int(meeting.get("approved_count") or 0)
     meeting["participant_count"] = 1 + approved_count
     meeting["remaining_slots"] = max(int(meeting.get("max_participants") or 0) - meeting["participant_count"], 0)

@@ -1,5 +1,6 @@
 from flask import Blueprint, request, session
 from app.shared.decorators import login_required
+from app.shared.s3 import generate_profile_image_url
 from .helpers import APIError, body, choice, pagination, role_for, text_field, transaction
 
 community_bp = Blueprint("community", __name__, url_prefix="/api/community")
@@ -7,7 +8,8 @@ BOARDS = ("FREE", "TIPS", "NOTICE")
 
 
 def get_post(cursor, post_id, lock=False):
-    cursor.execute("""SELECT p.*, u.nickname AS author_nickname FROM community_posts p
+    cursor.execute("""SELECT p.*, u.nickname AS author_nickname,
+        u.profile_image AS author_profile_image FROM community_posts p
         JOIN users u ON u.user_id = p.author_id
         WHERE p.post_id = %s AND p.deleted_at IS NULL""" + (" FOR UPDATE" if lock else ""), (post_id,))
     post = cursor.fetchone()
@@ -32,12 +34,16 @@ def list_posts():
         raise APIError("keyword too long.")
     with transaction() as cursor:
         cursor.execute("""SELECT p.post_id, p.author_id, p.board, p.title, p.created_at,
-            u.nickname AS author_nickname FROM community_posts p JOIN users u ON u.user_id = p.author_id
+            u.nickname AS author_nickname, u.profile_image AS author_profile_image
+            FROM community_posts p JOIN users u ON u.user_id = p.author_id
             WHERE p.deleted_at IS NULL AND (%s = '' OR p.board = %s)
             AND (p.title LIKE %s OR p.content LIKE %s)
             ORDER BY p.post_id DESC LIMIT %s OFFSET %s""",
             (board, board, f"%{keyword}%", f"%{keyword}%", *pagination()))
-        return {"posts": cursor.fetchall()}
+        posts = cursor.fetchall()
+        for post in posts:
+            post["author_profile_image"] = generate_profile_image_url(post.get("author_profile_image"))
+        return {"posts": posts}
 
 
 @community_bp.get("/posts/<int:post_id>")
@@ -45,11 +51,16 @@ def list_posts():
 def post_detail(post_id):
     with transaction() as cursor:
         post = get_post(cursor, post_id)
+        post["author_profile_image"] = generate_profile_image_url(post.get("author_profile_image"))
         cursor.execute("""SELECT c.comment_id, c.author_id, c.content, c.created_at,
-            u.nickname AS author_nickname FROM community_comments c JOIN users u ON u.user_id = c.author_id
+            u.nickname AS author_nickname, u.profile_image AS author_profile_image
+            FROM community_comments c JOIN users u ON u.user_id = c.author_id
             WHERE c.post_id = %s AND c.deleted_at IS NULL ORDER BY c.comment_id
             LIMIT %s OFFSET %s""", (post_id, *pagination()))
-        return {"post": post, "comments": cursor.fetchall()}
+        comments = cursor.fetchall()
+        for comment in comments:
+            comment["author_profile_image"] = generate_profile_image_url(comment.get("author_profile_image"))
+        return {"post": post, "comments": comments}
 
 
 def post_input(data):

@@ -8,10 +8,10 @@ async function loadPost(more = false) {
   loadedPost = data.post;
   const allowed = postUser.user_id === loadedPost.author_id || postUser.role === 'ADMIN';
   const view = document.getElementById('postView'); view.hidden = false;
-  view.innerHTML = `<span class="badge">${escapeHtml(COMMUNITY_BOARD_LABELS[loadedPost.board] || loadedPost.board)}</span><h2>${escapeHtml(loadedPost.title)}</h2><p class="muted">${escapeHtml(loadedPost.author_nickname)}</p><div class="feature-copy">${escapeHtml(loadedPost.content)}</div><div class="feature-row">${allowed ? '<button class="btn" id="editPost">수정</button><button class="btn danger" id="deletePost">삭제</button>' : `<a class="btn" href="/static/reports.html?type=POST&id=${postId}">신고</a>`}</div>`;
+  view.innerHTML = `<span class="badge">${escapeHtml(COMMUNITY_BOARD_LABELS[loadedPost.board] || loadedPost.board)}</span><h2>${escapeHtml(loadedPost.title)}</h2><p class="muted">${userIdentity(loadedPost.author_profile_image, loadedPost.author_nickname)}</p><div class="feature-copy">${escapeHtml(loadedPost.content)}</div><div class="feature-row">${allowed ? '<button class="btn" id="editPost">수정</button><button class="btn danger" id="deletePost">삭제</button>' : `<a class="btn" href="/static/reports.html?type=POST&id=${postId}">신고</a>`}</div>`;
   document.getElementById('postEditor').hidden = true;
   document.getElementById('commentsPanel').hidden = false;
-  const html = emptyList(data.comments, c => `<div class="feature-item"><strong>${escapeHtml(c.author_nickname)}</strong><p class="feature-copy">${escapeHtml(c.content)}</p>${c.author_id === postUser.user_id || postUser.role === 'ADMIN' ? `<button class="btn sm" data-comment="${c.comment_id}">삭제</button>` : ''}</div>`);
+  const html = emptyList(data.comments, c => `<div class="feature-item"><strong>${userIdentity(c.author_profile_image, c.author_nickname)}</strong><p class="feature-copy">${escapeHtml(c.content)}</p>${c.author_id === postUser.user_id || postUser.role === 'ADMIN' ? `<button class="btn sm" data-comment="${c.comment_id}">삭제</button>` : ''}</div>`);
   const list = document.getElementById('commentList');
   if (more) list.insertAdjacentHTML('beforeend', html); else list.innerHTML = html;
   commentsOffset += data.comments.length;
