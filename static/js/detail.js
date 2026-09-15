@@ -51,7 +51,7 @@ function renderParticipantActions() {
   const recruiting = meeting.status === "RECRUITING";
   side.innerHTML = `<h2>참가</h2><div class="action-stack"><button id="joinButton" class="btn blue" ${recruiting ? "" : "disabled"}>${recruiting ? "참가 신청" : "모집 중이 아님"}</button><button id="cancelButton" class="btn danger">참가 취소</button><a class="btn" href="chat.html">채팅방 보기</a></div>`;
   document.getElementById("joinButton").onclick = joinMeeting;
-  document.getElementById("cancelButton").onclick = cancelMeeting;
+  document.getElementById("cancelButton").onclick = cancelParticipation;
 }
 function renderHostActions() {
   const canChangeStatus = ["RECRUITING", "CLOSED"].includes(meeting.status);
@@ -92,7 +92,7 @@ async function submitParticipation() {
   showToast(d.message);
   window.dispatchEvent(new Event('participation-changed'));
 }
-async function cancelMeeting() {
+async function cancelParticipation() {
   if (!confirm("참가 신청/참여를 취소할까요?")) return;
   try {
     const d = await apiFetch(`/api/meetings/${meetingId}/participants/me`, {

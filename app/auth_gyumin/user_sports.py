@@ -7,6 +7,8 @@ from app.shared.request_utils import get_json_body
 
 sports_bp = Blueprint("sports", __name__, url_prefix="/api")
 
+SKILL_LEVELS = ("BRONZE", "SILVER", "GOLD", "MASTER")
+
 # 내 운동 프로필 조회
 @users_bp.get("/me/sports")
 @login_required
@@ -67,7 +69,7 @@ def add_my_sport():
         return {"message": "skill_level must be string type."}, 400
 
     # 실력 값 검증
-    if skill_level not in ("BRONZE", "SILVER", "GOLD", "MASTER"):
+    if skill_level not in SKILL_LEVELS:
         return {
             "message": "skill_level must be BRONZE, SILVER, GOLD, or MASTER."
         }, 400
@@ -142,7 +144,7 @@ def update_my_sport(sport_id):
 
     skill_level = sport_info.get("skill_level")
 
-    if skill_level not in ("BRONZE", "SILVER", "GOLD", "MASTER"):
+    if skill_level not in SKILL_LEVELS:
         return {
             "message": "skill_level must be BRONZE, SILVER, GOLD, or MASTER."
         }, 400

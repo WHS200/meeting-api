@@ -20,6 +20,21 @@ participation_bp = Blueprint(
     url_prefix="/api/meetings"
 )
 
+
+def _get_approved_participant_count(cursor, meeting_id):
+    cursor.execute(
+        """
+        SELECT COUNT(*) AS count
+        FROM meeting_participants
+        WHERE meeting_id = %s
+        AND participation_status = 'APPROVED'
+        """,
+        (meeting_id,)
+    )
+
+    return cursor.fetchone()["count"]
+
+
 # 모임 참여 신청
 @participation_bp.post("/<int:meeting_id>/participants")
 @login_required
@@ -62,17 +77,10 @@ def join_meeting(meeting_id):
             return {"message": "Already Participated"}, 409
 
         # 현재 승인된 참여자 수 확인
-        cursor.execute(
-            """
-            SELECT COUNT(*) AS count
-            FROM meeting_participants
-            WHERE meeting_id = %s
-            AND participation_status = 'APPROVED'
-            """,
-            (meeting_id,)
+        participant_count = _get_approved_participant_count(
+            cursor,
+            meeting_id
         )
-
-        participant_count = cursor.fetchone()["count"]
 
         # 정원 초과 여부 확인
         if participant_count + 1 >= meeting["max_participants"] and meeting["approval_type"] == "INSTANT":
@@ -271,17 +279,10 @@ def approve_participant(meeting_id, target_user_id):
         ensure_no_overlap(cursor, target_user_id, meeting)
 
         # 현재 승인된 참여자 수 확인
-        cursor.execute(
-            """
-            SELECT COUNT(*) AS count
-            FROM meeting_participants
-            WHERE meeting_id = %s
-            AND participation_status = 'APPROVED'
-            """,
-            (meeting_id,)
+        participant_count = _get_approved_participant_count(
+            cursor,
+            meeting_id
         )
-
-        participant_count = cursor.fetchone()["count"]
 
         # 정원 초과 여부 확인
         if participant_count + 1 >= meeting["max_participants"]:

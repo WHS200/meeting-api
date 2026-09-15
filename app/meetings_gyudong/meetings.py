@@ -33,8 +33,30 @@ def _close(connection, cursor):
     connection.close()
 
 
-def _meeting_select_sql():
-    return """
+def _meeting_select_sql(include_my_participation_status=False):
+    my_participation_status_select = ""
+
+    if include_my_participation_status:
+        my_participation_status_select = """
+            ,
+            CASE
+                WHEN m.host_id = %s THEN 'HOST'
+                ELSE (
+                    SELECT mp2.participation_status
+                    FROM meeting_participants AS mp2
+                    WHERE mp2.meeting_id = m.meeting_id
+                    AND mp2.user_id = %s
+                    AND mp2.participation_status IN (
+                        'APPROVED',
+                        'PENDING',
+                        'WAITING'
+                    )
+                    LIMIT 1
+                )
+            END AS my_participation_status
+        """
+
+    return f"""
         SELECT
             m.meeting_id,
             m.title,
@@ -53,14 +75,33 @@ def _meeting_select_sql():
             m.approval_type,
             m.status,
             m.created_at,
-            m.updated_at
-            ,(SELECT COUNT(*) FROM meeting_participants AS approved_mp
-              WHERE approved_mp.meeting_id = m.meeting_id
-                AND approved_mp.participation_status = 'APPROVED') AS approved_count
+            m.updated_at,
+            (
+                SELECT COUNT(*)
+                FROM meeting_participants AS approved_mp
+                WHERE approved_mp.meeting_id = m.meeting_id
+                AND approved_mp.participation_status = 'APPROVED'
+            ) AS approved_count
+            {my_participation_status_select}
         FROM meetings AS m
         JOIN sports AS s ON s.sport_id = m.sport_id
         JOIN users AS u ON u.user_id = m.host_id
     """
+
+
+def _serialize_time_field(meeting, field_name):
+    value = meeting.get(field_name)
+
+    if isinstance(value, timedelta):
+        total_minutes = int(value.total_seconds() // 60)
+        hours, minutes = divmod(total_minutes, 60)
+        meeting[field_name] = f"{hours:02d}:{minutes:02d}"
+
+    elif isinstance(value, time):
+        meeting[field_name] = value.strftime("%H:%M")
+
+    elif isinstance(value, str):
+        meeting[field_name] = value[:5]
 
 
 def _serialize_meeting(meeting):
@@ -72,25 +113,9 @@ def _serialize_meeting(meeting):
     meeting["participant_count"] = 1 + approved_count
     meeting["remaining_slots"] = max(int(meeting.get("max_participants") or 0) - meeting["participant_count"], 0)
 
-    meeting_time = meeting.get("meeting_time")
+    _serialize_time_field(meeting, "meeting_time")
+    _serialize_time_field(meeting, "end_time")
 
-    if isinstance(meeting_time, timedelta):
-        total_minutes = int(meeting_time.total_seconds() // 60)
-        hours, minutes = divmod(total_minutes, 60)
-        meeting["meeting_time"] = f"{hours:02d}:{minutes:02d}"
-    elif isinstance(meeting_time, time):
-        meeting["meeting_time"] = meeting_time.strftime("%H:%M")
-    elif isinstance(meeting_time, str):
-        meeting["meeting_time"] = meeting_time[:5]
-
-    end_time = meeting.get("end_time")
-    if isinstance(end_time, timedelta):
-        minutes = int(end_time.total_seconds() // 60)
-        meeting["end_time"] = f"{minutes // 60:02d}:{minutes % 60:02d}"
-    elif isinstance(end_time, time):
-        meeting["end_time"] = end_time.strftime("%H:%M")
-    elif isinstance(end_time, str):
-        meeting["end_time"] = end_time[:5]
     return meeting
 
 
@@ -477,11 +502,7 @@ def get_my_meetings():
     cursor = connection.cursor(dictionary=True)
     try:
         cursor.execute(
-            _meeting_select_sql()
-            .replace(
-                "FROM meetings AS m",
-                ", CASE WHEN m.host_id = %s THEN 'HOST' ELSE (SELECT mp2.participation_status FROM meeting_participants AS mp2 WHERE mp2.meeting_id = m.meeting_id AND mp2.user_id = %s AND mp2.participation_status IN ('APPROVED','PENDING','WAITING') LIMIT 1) END AS my_participation_status FROM meetings AS m",
-            )
+            _meeting_select_sql(include_my_participation_status=True)
             + " WHERE m.host_id = %s OR EXISTS ("
             + "SELECT 1 FROM meeting_participants AS mp "
             + "WHERE mp.meeting_id = m.meeting_id AND mp.user_id = %s "
