@@ -355,7 +355,7 @@ def create_meeting():
 def _get_editor(cursor, meeting_id, user_id):
     cursor.execute(
         """
-        SELECT m.meeting_id, m.host_id, u.role
+        SELECT m.meeting_id, m.host_id, m.status, u.role
         FROM meetings AS m
         JOIN users AS u ON u.user_id = %s
         WHERE m.meeting_id = %s
@@ -420,7 +420,10 @@ def update_meeting(meeting_id):
                 meeting_id,
             ),
         )
-        promote_waiters(cursor, dict(data, meeting_id=meeting_id))
+        promote_waiters(
+            cursor,
+            dict(data, meeting_id=meeting_id, status=editor["status"]),
+        )
         connection.commit()
     except Exception:
         connection.rollback()

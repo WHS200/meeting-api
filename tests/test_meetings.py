@@ -80,7 +80,12 @@ class MeetingUpdateCursor(FakeCursor):
         if "FROM meetings m" in self.current_sql:
             return {"meeting_id": 99} if self.overlap else None
         if "SELECT m.meeting_id, m.host_id" in self.current_sql:
-            return {"meeting_id": 41, "host_id": 1, "role": "USER"}
+            return {
+                "meeting_id": 41,
+                "host_id": 1,
+                "status": "RECRUITING",
+                "role": "USER",
+            }
         if "SELECT sport_id FROM sports" in self.current_sql:
             return {"sport_id": 1}
         if "SELECT host_id FROM meetings" in self.current_sql:

@@ -82,6 +82,7 @@ class WaitlistScheduleTest(MySQLTestCase):
         payload['max_participants']=2
         self.assertEqual(self.client.put(f'/api/meetings/{first}',json=payload).status_code,409)
         payload['max_participants']=3
+        payload.pop('status')
         self.assertEqual(self.client.put(f'/api/meetings/{first}',json=payload).status_code,200)
         self.assertTrue(any(n['event_type']=='MEETING_CHANGED' for n in self.client_for(2).get('/api/notifications').json['notifications']))
 

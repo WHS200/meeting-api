@@ -89,10 +89,8 @@ async function loadForEdit() {
   form.max_participants.value = m.max_participants;
   form.required_skill_level.value = m.required_skill_level || "";
   form.approval_type.value = m.approval_type;
-  form.status.value = m.status;
   document.querySelector("[data-form-title]").textContent = "모임 수정";
   document.querySelector("[data-submit-label]").textContent = "수정 저장";
-  document.getElementById("statusField").hidden = false;
 }
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
