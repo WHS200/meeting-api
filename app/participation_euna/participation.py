@@ -356,6 +356,22 @@ def get_approved_participants(meeting_id):
         return error
 
     try:
+        # 모임장 또는 승인된 참가자만 조회 가능
+        if meeting["host_id"] != user_id:
+            cursor.execute(
+                """
+                SELECT 1
+                FROM meeting_participants
+                WHERE meeting_id = %s
+                AND user_id = %s
+                AND participation_status = 'APPROVED'
+                """,
+                (meeting_id, user_id)
+            )
+
+            if cursor.fetchone() is None:
+                return {"message": "Not Authorized"}, 403
+
         # 승인된 참여자 목록 조회
         cursor.execute(
             """

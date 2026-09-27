@@ -125,7 +125,7 @@ async function loadApprovedPublic() {
     document.getElementById("approvedSummary").textContent =
       `승인된 참가자 ${d.participants.length}명`;
   } catch (e) {
-    if (e.status !== 401) showToast(e.message);
+    if (e.status !== 401 && e.status !== 403) showToast(e.message);
   }
 }
 async function loadHostManagement(pending) {

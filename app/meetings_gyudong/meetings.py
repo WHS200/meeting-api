@@ -384,6 +384,8 @@ def update_meeting(meeting_id):
             return {"message": "Meeting Not Found"}, 404
         if editor["host_id"] != session["user_id"] and editor["role"] != "ADMIN":
             return {"message": "Not Authorized"}, 403
+        if editor["status"] in ("COMPLETED", "CANCELED"):
+            return {"message": "Completed or canceled meeting cannot be updated."}, 409
 
         cursor.execute("SELECT sport_id FROM sports WHERE sport_id = %s AND status = 'ACTIVE'", (data["sport_id"],))
         if cursor.fetchone() is None:

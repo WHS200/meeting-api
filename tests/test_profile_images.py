@@ -75,7 +75,7 @@ class ProfileImageApiTest(unittest.TestCase):
                                 participation_status=status, attendance_status="ATTENDED")
                 self.cursor.fetchall.return_value = [dict(original, profile_image=key)]
                 with patch("app.participation_euna.participation." + context, return_value=(
-                    self.connection, self.cursor, {"sport_id": 1}, 1, None
+                    self.connection, self.cursor, {"sport_id": 1, "host_id": 1}, 1, None
                 )):
                     response = self.client.get("/api/meetings/10/participants" + suffix)
                 self.assertEqual(response.status_code, 200)
