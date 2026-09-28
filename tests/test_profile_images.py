@@ -21,9 +21,22 @@ class ProfileImageApiTest(unittest.TestCase):
         self.client = app.test_client()
         with self.client.session_transaction() as session:
             session["user_id"] = 1
+            session["session_version"] = 0
         self.cursor = MagicMock()
         self.connection = MagicMock()
         self.connection.cursor.return_value = self.cursor
+        self.auth_cursor = MagicMock()
+        self.auth_cursor.fetchone.return_value = {
+            "session_version": 0
+        }
+        self.auth_connection = MagicMock()
+        self.auth_connection.cursor.return_value = self.auth_cursor
+        auth_patcher = patch(
+            "app.shared.decorators.get_db_connection",
+            return_value=self.auth_connection
+        )
+        auth_patcher.start()
+        self.addCleanup(auth_patcher.stop)
         self.s3 = MagicMock()
         self.s3.generate_presigned_url.return_value = "https://images.example/avatar?signed=1"
         for target, value in (
@@ -97,6 +110,7 @@ class ProfileImageApiTest(unittest.TestCase):
                     self.s3.reset_mock()
                     with self.client.session_transaction() as session:
                         session["user_id"] = viewer
+                        session["session_version"] = 0
                     self.cursor.fetchone.return_value = {"host_id": 1}
                     self.cursor.fetchall.return_value = [
                         dict(user_id=3, nickname="First", waiting_at="first", profile_image=key),

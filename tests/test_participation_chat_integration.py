@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from flask import Flask
 
@@ -61,6 +61,18 @@ class ParticipationChatIntegrationTest(unittest.TestCase):
             patcher = patch(target)
             patcher.start()
             self.addCleanup(patcher.stop)
+        auth_cursor = MagicMock()
+        auth_cursor.fetchone.return_value = {
+            "session_version": 0
+        }
+        auth_connection = MagicMock()
+        auth_connection.cursor.return_value = auth_cursor
+        auth_patcher = patch(
+            "app.shared.decorators.get_db_connection",
+            return_value=auth_connection
+        )
+        auth_patcher.start()
+        self.addCleanup(auth_patcher.stop)
         app = Flask(__name__)
 
         app.config.update(
@@ -98,6 +110,7 @@ class ParticipationChatIntegrationTest(unittest.TestCase):
         with self.client.session_transaction() as session:
             session.clear()
             session["user_id"] = user_id
+            session["session_version"] = 0
 
         cursor = FakeCursor(
             one_values=one_values,

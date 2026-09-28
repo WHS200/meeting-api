@@ -1,6 +1,6 @@
 import unittest
 from datetime import datetime
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from flask import Flask
 from flask_socketio import SocketIO
@@ -26,6 +26,7 @@ class FakeCursor:
     def fetchone(self):
         if not self.one_values:
             return None
+
         return self.one_values.pop(0)
 
     def fetchall(self):
@@ -57,12 +58,33 @@ class FakeConnection:
 class ChatApiTest(unittest.TestCase):
     def setUp(self):
         app = Flask(__name__)
-        app.config.update(TESTING=True, SECRET_KEY="test-secret")
+        app.config.update(
+            TESTING=True,
+            SECRET_KEY="test-secret"
+        )
         app.register_blueprint(chat_bp)
+
         self.client = app.test_client()
+
+        # login_required의 session_version 검사용 DB mock
+        auth_cursor = MagicMock()
+        auth_cursor.fetchone.return_value = {
+            "session_version": 0
+        }
+
+        auth_connection = MagicMock()
+        auth_connection.cursor.return_value = auth_cursor
+
+        auth_patcher = patch(
+            "app.shared.decorators.get_db_connection",
+            return_value=auth_connection
+        )
+        auth_patcher.start()
+        self.addCleanup(auth_patcher.stop)
 
         with self.client.session_transaction() as session:
             session["user_id"] = 1
+            session["session_version"] = 0
 
     def test_messages_query_uses_common_schema_names(self):
         cursor = FakeCursor(
@@ -75,134 +97,304 @@ class ChatApiTest(unittest.TestCase):
                 "created_at": "2026-08-26 12:00:00",
             }],
         )
+
         connection = FakeConnection(cursor)
 
         with patch(
             "app.chat_dahyun.chat.get_db_connection",
             return_value=connection,
         ):
-            response = self.client.get("/api/chat/rooms/3/messages")
+            response = self.client.get(
+                "/api/chat/rooms/3/messages"
+            )
 
         self.assertEqual(response.status_code, 200)
+
         messages_sql = cursor.executed[1][0]
-        self.assertIn("FROM chat_messages AS msg", messages_sql)
-        self.assertIn("msg.created_at", messages_sql)
-        self.assertNotIn("sent_at", messages_sql)
+
+        self.assertIn(
+            "FROM chat_messages AS msg",
+            messages_sql
+        )
+        self.assertIn(
+            "msg.created_at",
+            messages_sql
+        )
+        self.assertNotIn(
+            "sent_at",
+            messages_sql
+        )
 
     def test_room_list_resolves_direct_counterpart_from_session_user(self):
         cursor = FakeCursor(many=[])
         connection = FakeConnection(cursor)
-        with patch("app.chat_dahyun.chat.get_db_connection", return_value=connection):
-            response = self.client.get("/api/chat/rooms")
-        self.assertEqual(response.status_code, 200)
+
+        with patch(
+            "app.chat_dahyun.chat.get_db_connection",
+            return_value=connection
+        ):
+            response = self.client.get(
+                "/api/chat/rooms"
+            )
+
+        self.assertEqual(
+            response.status_code,
+            200
+        )
+
         sql, params = cursor.executed[0]
-        self.assertIn("direct_member.user_id != %s", sql)
-        self.assertIn("direct_user.nickname AS direct_nickname", sql)
-        self.assertEqual(params, (1, 1))
+
+        self.assertIn(
+            "direct_member.user_id != %s",
+            sql
+        )
+        self.assertIn(
+            "direct_user.nickname AS direct_nickname",
+            sql
+        )
+        self.assertEqual(
+            params,
+            (1, 1)
+        )
 
     def test_meeting_room_includes_status(self):
-        cursor = FakeCursor(many=[{
-            "chat_room_id": 10, "room_type": "MEETING", "meeting_id": 5,
-            "meeting_title": "Tennis", "meeting_status": "RECRUITING",
-            "meeting_host_id": 3,
-            "direct_nickname": None, "direct_profile_image": None,
-        }])
+        cursor = FakeCursor(
+            many=[{
+                "chat_room_id": 10,
+                "room_type": "MEETING",
+                "meeting_id": 5,
+                "meeting_title": "Tennis",
+                "meeting_status": "RECRUITING",
+                "meeting_host_id": 3,
+                "direct_nickname": None,
+                "direct_profile_image": None,
+            }]
+        )
+
         connection = FakeConnection(cursor)
-        with patch("app.chat_dahyun.chat.get_db_connection", return_value=connection):
-            response = self.client.get("/api/chat/rooms")
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.get_json()["chat_rooms"][0]["meeting_status"], "RECRUITING")
-        self.assertIn("m.status AS meeting_status", cursor.executed[0][0])
-        self.assertIn("m.host_id AS meeting_host_id", cursor.executed[0][0])
+
+        with patch(
+            "app.chat_dahyun.chat.get_db_connection",
+            return_value=connection
+        ):
+            response = self.client.get(
+                "/api/chat/rooms"
+            )
+
+        self.assertEqual(
+            response.status_code,
+            200
+        )
+
+        self.assertEqual(
+            response.get_json()["chat_rooms"][0]["meeting_status"],
+            "RECRUITING"
+        )
+
+        self.assertIn(
+            "m.status AS meeting_status",
+            cursor.executed[0][0]
+        )
+        self.assertIn(
+            "m.host_id AS meeting_host_id",
+            cursor.executed[0][0]
+        )
 
     def test_messages_cursor_returns_ascending_page_and_cursor(self):
         cursor = FakeCursor(
             one_values=[{"member": 1}],
             many=[
-                {"message_id": 10, "chat_room_id": 3, "sender_id": 1, "content": "10", "created_at": "2026-08-26 12:00:10"},
-                {"message_id": 9, "chat_room_id": 3, "sender_id": 1, "content": "9", "created_at": "2026-08-26 12:00:09"},
-                {"message_id": 8, "chat_room_id": 3, "sender_id": 1, "content": "8", "created_at": "2026-08-26 12:00:08"},
+                {
+                    "message_id": 10,
+                    "chat_room_id": 3,
+                    "sender_id": 1,
+                    "content": "10",
+                    "created_at": "2026-08-26 12:00:10"
+                },
+                {
+                    "message_id": 9,
+                    "chat_room_id": 3,
+                    "sender_id": 1,
+                    "content": "9",
+                    "created_at": "2026-08-26 12:00:09"
+                },
+                {
+                    "message_id": 8,
+                    "chat_room_id": 3,
+                    "sender_id": 1,
+                    "content": "8",
+                    "created_at": "2026-08-26 12:00:08"
+                },
             ],
         )
+
         connection = FakeConnection(cursor)
-        with patch("app.chat_dahyun.chat.get_db_connection", return_value=connection):
-            response = self.client.get("/api/chat/rooms/3/messages?limit=2&before_message_id=11")
+
+        with patch(
+            "app.chat_dahyun.chat.get_db_connection",
+            return_value=connection
+        ):
+            response = self.client.get(
+                "/api/chat/rooms/3/messages?limit=2&before_message_id=11"
+            )
+
         payload = response.get_json()
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual([m["message_id"] for m in payload["messages"]], [9, 10])
-        self.assertTrue(payload["has_more"])
-        self.assertEqual(payload["next_before_message_id"], 9)
-        self.assertIn("msg.message_id < %s", cursor.executed[1][0])
+
+        self.assertEqual(
+            response.status_code,
+            200
+        )
+        self.assertEqual(
+            [m["message_id"] for m in payload["messages"]],
+            [9, 10]
+        )
+        self.assertTrue(
+            payload["has_more"]
+        )
+        self.assertEqual(
+            payload["next_before_message_id"],
+            9
+        )
+        self.assertIn(
+            "msg.message_id < %s",
+            cursor.executed[1][0]
+        )
 
 
 class ChatSocketTest(unittest.TestCase):
     def setUp(self):
         # Status policy is covered with real MySQL in test_admin.py.
-        patcher = patch("app.chat_dahyun.socket_events.socket_user_active", return_value=True)
+        patcher = patch(
+            "app.chat_dahyun.socket_events.socket_user_active",
+            return_value=True
+        )
         patcher.start()
         self.addCleanup(patcher.stop)
 
     def test_message_datetime_is_socket_json_serializable(self):
         message = _serialize_message({
             "message_id": 7,
-            "created_at": datetime(2026, 8, 26, 12, 34, 56),
+            "created_at": datetime(
+                2026,
+                8,
+                26,
+                12,
+                34,
+                56
+            ),
         })
 
-        self.assertEqual(message["created_at"], "2026-08-26T12:34:56")
+        self.assertEqual(
+            message["created_at"],
+            "2026-08-26T12:34:56"
+        )
 
     def test_send_message_uses_common_schema_names(self):
         app = Flask(__name__)
-        app.config.update(TESTING=True, SECRET_KEY="test-secret")
-        socketio = SocketIO(app, async_mode="threading")
+        app.config.update(
+            TESTING=True,
+            SECRET_KEY="test-secret"
+        )
+
+        socketio = SocketIO(
+            app,
+            async_mode="threading"
+        )
+
         register_socket_events(socketio)
+
         flask_client = app.test_client()
 
         with flask_client.session_transaction() as session:
             session["user_id"] = 1
 
-        cursor = FakeCursor(one_values=[
-            {"member": 1},
-            {
-                "message_id": 7,
-                "chat_room_id": 3,
-                "sender_id": 1,
-                "content": "hello",
-                "created_at": "2026-08-26 12:00:00",
-            },
-        ])
+        cursor = FakeCursor(
+            one_values=[
+                {"member": 1},
+                {
+                    "message_id": 7,
+                    "chat_room_id": 3,
+                    "sender_id": 1,
+                    "content": "hello",
+                    "created_at": "2026-08-26 12:00:00",
+                },
+            ]
+        )
+
         connection = FakeConnection(cursor)
 
         with patch(
             "app.chat_dahyun.socket_events.get_db_connection",
             return_value=connection,
-        ), patch("app.chat_dahyun.socket_events.check_direct_send"):
-            client = socketio.test_client(app, flask_test_client=flask_client)
-            self.assertTrue(client.is_connected())
-            client.emit("send_message", {
-                "chat_room_id": 3,
-                "content": "hello",
-            })
+        ), patch(
+            "app.chat_dahyun.socket_events.check_direct_send"
+        ):
+            client = socketio.test_client(
+                app,
+                flask_test_client=flask_client
+            )
+
+            self.assertTrue(
+                client.is_connected()
+            )
+
+            client.emit(
+                "send_message",
+                {
+                    "chat_room_id": 3,
+                    "content": "hello",
+                }
+            )
 
         insert_sql = cursor.executed[1][0]
         select_sql = cursor.executed[2][0]
-        self.assertIn("INSERT INTO chat_messages", insert_sql)
-        self.assertIn("created_at", insert_sql)
-        self.assertIn("FROM chat_messages AS msg", select_sql)
-        self.assertIn("msg.created_at", select_sql)
-        self.assertNotIn("sent_at", insert_sql + select_sql)
-        self.assertTrue(connection.committed)
+
+        self.assertIn(
+            "INSERT INTO chat_messages",
+            insert_sql
+        )
+        self.assertIn(
+            "created_at",
+            insert_sql
+        )
+        self.assertIn(
+            "FROM chat_messages AS msg",
+            select_sql
+        )
+        self.assertIn(
+            "msg.created_at",
+            select_sql
+        )
+        self.assertNotIn(
+            "sent_at",
+            insert_sql + select_sql
+        )
+        self.assertTrue(
+            connection.committed
+        )
+
         client.disconnect()
 
     def test_remove_user_from_chat_room_evicts_all_active_sockets(self):
         app = Flask(__name__)
-        app.config.update(TESTING=True, SECRET_KEY="test-secret")
-        socketio = SocketIO(app, async_mode="threading")
+        app.config.update(
+            TESTING=True,
+            SECRET_KEY="test-secret"
+        )
+
+        socketio = SocketIO(
+            app,
+            async_mode="threading"
+        )
+
         register_socket_events(socketio)
 
         def connect(user_id):
             flask_client = app.test_client()
+
             with flask_client.session_transaction() as session:
                 session["user_id"] = user_id
+
             return socketio.test_client(
                 app,
                 flask_test_client=flask_client,
@@ -217,36 +409,69 @@ class ChatSocketTest(unittest.TestCase):
                 "app.chat_dahyun.socket_events._check_membership",
                 return_value=True,
             ):
-                user_socket_one.emit("join_room", {"chat_room_id": 20})
-                user_socket_two.emit("join_room", {"chat_room_id": 20})
-                other_user_socket.emit("join_room", {"chat_room_id": 20})
+                user_socket_one.emit(
+                    "join_room",
+                    {"chat_room_id": 20}
+                )
+                user_socket_two.emit(
+                    "join_room",
+                    {"chat_room_id": 20}
+                )
+                other_user_socket.emit(
+                    "join_room",
+                    {"chat_room_id": 20}
+                )
 
             user_socket_one.get_received()
             user_socket_two.get_received()
             other_user_socket.get_received()
 
-            removed_socket_count = remove_user_from_chat_room(2, 20)
-            socketio.emit("probe", {"chat_room_id": 20}, to="20")
+            removed_socket_count = remove_user_from_chat_room(
+                2,
+                20
+            )
 
-            self.assertEqual(removed_socket_count, 2)
-            self.assertNotIn(
+            socketio.emit(
                 "probe",
-                [event["name"] for event in user_socket_one.get_received()],
+                {"chat_room_id": 20},
+                to="20"
+            )
+
+            self.assertEqual(
+                removed_socket_count,
+                2
             )
             self.assertNotIn(
                 "probe",
-                [event["name"] for event in user_socket_two.get_received()],
+                [
+                    event["name"]
+                    for event in user_socket_one.get_received()
+                ],
+            )
+            self.assertNotIn(
+                "probe",
+                [
+                    event["name"]
+                    for event in user_socket_two.get_received()
+                ],
             )
             self.assertIn(
                 "probe",
-                [event["name"] for event in other_user_socket.get_received()],
+                [
+                    event["name"]
+                    for event in other_user_socket.get_received()
+                ],
             )
+
         finally:
             user_socket_one.disconnect()
             user_socket_two.disconnect()
             other_user_socket.disconnect()
 
-        self.assertEqual(remove_user_from_chat_room(2, 20), 0)
+        self.assertEqual(
+            remove_user_from_chat_room(2, 20),
+            0
+        )
 
 
 if __name__ == "__main__":
