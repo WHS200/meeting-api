@@ -184,6 +184,8 @@ def logout():
             (user_id, )
         )
 
+        connection.commit()
+
     except Exception:
         connection.rollback()
         raise
