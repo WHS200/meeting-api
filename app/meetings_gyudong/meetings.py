@@ -352,14 +352,19 @@ def create_meeting():
     return {"message": "Meeting Created", "meeting_id": meeting_id}, 201
 
 
-def _get_editor(cursor, meeting_id, user_id):
-    cursor.execute(
-        """
+def _get_editor(cursor, meeting_id, user_id, for_update=False):
+    sql = """
         SELECT m.meeting_id, m.host_id, m.status, u.role
         FROM meetings AS m
         JOIN users AS u ON u.user_id = %s
         WHERE m.meeting_id = %s
-        """,
+        """
+
+    if for_update:
+        sql += " FOR UPDATE"
+
+    cursor.execute(
+        sql,
         (user_id, meeting_id),
     )
     return cursor.fetchone()
@@ -379,12 +384,21 @@ def update_meeting(meeting_id):
     cursor = connection.cursor(dictionary=True)
     try:
         lock_schedule(cursor)
-        editor = _get_editor(cursor, meeting_id, session["user_id"])
+        editor = _get_editor(
+            cursor,
+            meeting_id,
+            session["user_id"],
+            for_update=True,
+        )
         if editor is None:
             return {"message": "Meeting Not Found"}, 404
         if editor["host_id"] != session["user_id"] and editor["role"] != "ADMIN":
             return {"message": "Not Authorized"}, 403
+
+        expire_meeting_if_needed(cursor, editor)
+
         if editor["status"] in ("COMPLETED", "CANCELED"):
+            connection.commit()
             return {"message": "Completed or canceled meeting cannot be updated."}, 409
 
         cursor.execute("SELECT sport_id FROM sports WHERE sport_id = %s AND status = 'ACTIVE'", (data["sport_id"],))
