@@ -122,7 +122,6 @@ def update_me():
     return {"message": "Updated successfully."}, 200
 
 # 계정 삭제
-
 @users_bp.delete("/me")
 @login_required
 def delete_me():
@@ -295,14 +294,31 @@ def update_password():
         cursor.execute(
             """
             UPDATE users
-            SET password = %s
+            SET password = %s,
+                session_version = session_version + 1
             WHERE user_id = %s
             AND status != 'DELETED'
             """,
             (new_password_hash, user_id)
         )
 
+        # 증가된 새 session_version 조회
+        cursor.execute(
+            """
+            SELECT session_version
+            FROM users
+            WHERE user_id = %s
+            AND status != 'DELETED'
+            """,
+            (user_id, )
+        )
+
+        updated_user = cursor.fetchone()
+
         connection.commit()
+
+        # 현재 비밀번호를 변경한 브라우저는 로그인 상태 유지
+        session["session_version"] = updated_user["session_version"]
 
     except Exception:
         connection.rollback()

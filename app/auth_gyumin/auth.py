@@ -8,6 +8,8 @@ from app.shared.database import get_db_connection
 from app.shared.request_utils import get_json_body
 from app.codex_features.admin import check_active_user
 
+from app.shared.decorators import login_required
+
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
 # 회원가입 
@@ -126,7 +128,14 @@ def login():
 
     try:
         # 존재하는 사용자인지 확인
-        cursor.execute("SELECT user_id, password FROM users WHERE status != 'DELETED' AND login_id = %s", (login_id, ))
+        cursor.execute(
+        """
+        SELECT user_id, password, session_version 
+        FROM users 
+        WHERE status != 'DELETED' 
+        AND login_id = %s
+        """, 
+        (login_id, ))
         existing_user = cursor.fetchone()
         if not existing_user:
             return {"message": "Wrong ID or Password."}, 401
@@ -142,6 +151,13 @@ def login():
         # 로그인 성공 (DB에서 조회한 user_id를 세션에 저장)
         session.clear()
         session["user_id"] = existing_user["user_id"]
+        session["session_version"] = existing_user["session_version"]
+        # => Flask session cookie 안에:
+        # {
+        #     "user_id": 13,
+        #     "session_version": 4
+        # }
+
     finally:
         cursor.close()
         connection.close()
@@ -150,7 +166,32 @@ def login():
 
 # 로그아웃
 @auth_bp.post("/logout")
+@login_required
 def logout():
+    user_id = session.get("user_id")
+
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    try:
+        cursor.execute(
+            """
+            UPDATE users
+            SET session_version = session_version + 1
+            WHERE user_id = %s
+            AND status != 'DELETED'
+            """,
+            (user_id, )
+        )
+
+    except Exception:
+        connection.rollback()
+        raise
+
+    finally:
+        cursor.close()
+        connection.close()
+
     session.clear()
 
     return {"message": "Logout success."}, 200

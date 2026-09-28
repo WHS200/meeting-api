@@ -1,6 +1,7 @@
 from functools import wraps
-
 from flask import session
+from app.shared.database import get_db_connection
+
 
 # func => 데코레이터가 붙은 원래 함수
 # e.g.
@@ -18,8 +19,42 @@ def login_required(func):
     # get_me()로 바꾸는 것
     def wrapper(*args, **kwargs):
         user_id = session.get("user_id")
+        session_version = session.get("session_version")
+        # session_version 추가
 
         if not user_id:
+            return {"message": "Login first."}, 401
+
+        if session_version is None:
+            session.clear()
+            return {"message": "Login first."}, 401
+
+        connection = get_db_connection()
+        cursor = connection.cursor(dictionary=True)
+
+        try:
+            cursor.execute(
+                """
+                SELECT session_version
+                FROM users
+                WHERE user_id = %s
+                AND status != 'DELETED'
+                """,
+                (user_id, )
+            )
+
+            user = cursor.fetchone()
+
+        finally:
+            cursor.close()
+            connection.close()
+
+        if not user:
+            session.clear()
+            return {"message": "Login first."}, 401
+
+        if session_version != user["session_version"]:
+            session.clear()
             return {"message": "Login first."}, 401
 
         return func(*args, **kwargs)

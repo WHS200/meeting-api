@@ -245,6 +245,8 @@ document
   .addEventListener('submit', async (e) => {
     e.preventDefault();
 
+    const form = e.currentTarget;
+
     try {
       const d = await apiFetch('/api/users/me/password', {
         method: 'PATCH',
@@ -256,7 +258,7 @@ document
 
       showToast(d.message);
 
-      e.currentTarget.reset();
+      form.reset();
     } catch (err) {
       showToast(err.message);
     }
