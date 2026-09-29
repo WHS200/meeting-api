@@ -31,6 +31,9 @@ def get_login_rate_limit_key():
 
     return f"{ip}:{login_id}"
 
+# timing oracle 방어
+DUMMY_PASSWORD_HASH = generate_password_hash("dummy-password-for-login-timing")
+
 # 회원가입 
 @auth_bp.post("/signup")
 @limiter.limit(
@@ -172,12 +175,16 @@ def login():
         """, 
         (login_id, ))
         existing_user = cursor.fetchone()
-        if not existing_user:
-            return {"message": "Wrong ID or Password."}, 401
 
-        # 비밀번호 일치 확인
-        password_hash = existing_user.get("password")
-        if not check_password_hash(password_hash, password):
+        if existing_user:
+            password_hash = existing_user.get("password")
+        # 계정이 없어도 더미 해시 검사
+        else:
+            password_hash = DUMMY_PASSWORD_HASH
+
+        password_valid = check_password_hash(password_hash, password)
+
+        if not existing_user or not password_valid:
             return {"message": "Wrong ID or Password."}, 401
 
         check_active_user(cursor, existing_user["user_id"])
