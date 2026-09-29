@@ -1,19 +1,46 @@
 import re
 from datetime import datetime
 
-from flask import Blueprint, session
+from flask import Blueprint, session, request
+from flask_limiter.util import get_remote_address
+
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.shared.database import get_db_connection
 from app.shared.request_utils import get_json_body
 from app.codex_features.admin import check_active_user
+from app.shared.rate_limiter import limiter
 
 from app.shared.decorators import login_required
 
+
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
+
+# rate limit
+def get_login_rate_limit_key():
+    data = request.get_json(silent=True) or {}
+
+    login_id = data.get("login_id", "")
+
+    if not isinstance(login_id, str):
+        login_id = ""
+
+    login_id = login_id.strip().lower()
+
+    ip = get_remote_address()
+
+    return f"{ip}:{login_id}"
 
 # 회원가입 
 @auth_bp.post("/signup")
+@limiter.limit(
+    "5 per minute",
+    key_func=get_remote_address
+)
+@limiter.limit(
+    "20 per hour",
+    key_func=get_remote_address
+)
 def signup():
     # 올바른 형식이면 user_info = data, error = None
     # 아니면 user_info = None, error = 에러메시지, 에러코드
@@ -112,6 +139,14 @@ def signup():
 
 # 로그인
 @auth_bp.post("/login")
+@limiter.limit(
+    "10 per minute",
+    key_func = get_remote_address
+)
+@limiter.limit(
+    "5 per minute",
+    key_func = get_login_rate_limit_key
+)
 def login():
     user_info, error = get_json_body(["login_id", "password"])
 

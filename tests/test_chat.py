@@ -271,6 +271,25 @@ class ChatSocketTest(unittest.TestCase):
         patcher.start()
         self.addCleanup(patcher.stop)
 
+    def _auth_connection(self, session_version=0, status="ACTIVE"):
+        cursor = FakeCursor(one_values=[{
+            "session_version": session_version,
+            "status": status,
+        }])
+        return FakeConnection(cursor)
+
+    def _socket_client(self, app, socketio, session_version=0):
+        flask_client = app.test_client()
+
+        with flask_client.session_transaction() as session:
+            session["user_id"] = 1
+            session["session_version"] = session_version
+
+        return socketio.test_client(
+            app,
+            flask_test_client=flask_client
+        )
+
     def test_message_datetime_is_socket_json_serializable(self):
         message = _serialize_message({
             "message_id": 7,
@@ -307,6 +326,7 @@ class ChatSocketTest(unittest.TestCase):
 
         with flask_client.session_transaction() as session:
             session["user_id"] = 1
+            session["session_version"] = 0
 
         cursor = FakeCursor(
             one_values=[
@@ -323,9 +343,16 @@ class ChatSocketTest(unittest.TestCase):
 
         connection = FakeConnection(cursor)
 
+        connect_auth_connection = self._auth_connection()
+        event_auth_connection = self._auth_connection()
+
         with patch(
             "app.chat_dahyun.socket_events.get_db_connection",
-            return_value=connection,
+            side_effect=[
+                connect_auth_connection,
+                event_auth_connection,
+                connection,
+            ],
         ), patch(
             "app.chat_dahyun.socket_events.check_direct_send"
         ):
@@ -394,11 +421,16 @@ class ChatSocketTest(unittest.TestCase):
 
             with flask_client.session_transaction() as session:
                 session["user_id"] = user_id
+                session["session_version"] = 0
 
-            return socketio.test_client(
-                app,
-                flask_test_client=flask_client,
-            )
+            with patch(
+                "app.chat_dahyun.socket_events.get_db_connection",
+                side_effect=lambda: self._auth_connection(),
+            ):
+                return socketio.test_client(
+                    app,
+                    flask_test_client=flask_client,
+                )
 
         user_socket_one = connect(2)
         user_socket_two = connect(2)
@@ -406,6 +438,9 @@ class ChatSocketTest(unittest.TestCase):
 
         try:
             with patch(
+                "app.chat_dahyun.socket_events.get_db_connection",
+                side_effect=lambda: self._auth_connection(),
+            ), patch(
                 "app.chat_dahyun.socket_events._check_membership",
                 return_value=True,
             ):
@@ -472,6 +507,80 @@ class ChatSocketTest(unittest.TestCase):
             remove_user_from_chat_room(2, 20),
             0
         )
+
+    def test_connect_accepts_matching_session_version(self):
+        app = Flask(__name__)
+        app.config.update(TESTING=True, SECRET_KEY="test-secret")
+        socketio = SocketIO(app, async_mode="threading")
+        register_socket_events(socketio)
+
+        with patch(
+            "app.chat_dahyun.socket_events.get_db_connection",
+            return_value=self._auth_connection(session_version=3),
+        ):
+            client = self._socket_client(app, socketio, session_version=3)
+
+        self.assertTrue(client.is_connected())
+        client.disconnect()
+
+    def test_connect_rejects_missing_session_version(self):
+        app = Flask(__name__)
+        app.config.update(TESTING=True, SECRET_KEY="test-secret")
+        socketio = SocketIO(app, async_mode="threading")
+        register_socket_events(socketio)
+        flask_client = app.test_client()
+
+        with flask_client.session_transaction() as session:
+            session["user_id"] = 1
+
+        client = socketio.test_client(
+            app,
+            flask_test_client=flask_client
+        )
+
+        self.assertFalse(client.is_connected())
+
+    def test_connect_rejects_mismatched_session_version(self):
+        app = Flask(__name__)
+        app.config.update(TESTING=True, SECRET_KEY="test-secret")
+        socketio = SocketIO(app, async_mode="threading")
+        register_socket_events(socketio)
+
+        with patch(
+            "app.chat_dahyun.socket_events.get_db_connection",
+            return_value=self._auth_connection(session_version=4),
+        ):
+            client = self._socket_client(app, socketio, session_version=3)
+
+        self.assertFalse(client.is_connected())
+
+    def test_send_message_disconnects_after_session_version_changes(self):
+        app = Flask(__name__)
+        app.config.update(TESTING=True, SECRET_KEY="test-secret")
+        socketio = SocketIO(app, async_mode="threading")
+        register_socket_events(socketio)
+        current_connection = self._auth_connection(session_version=0)
+        expired_connection = self._auth_connection(session_version=1)
+
+        with patch(
+            "app.chat_dahyun.socket_events.get_db_connection",
+            side_effect=[current_connection, expired_connection],
+        ) as get_connection:
+            client = self._socket_client(app, socketio, session_version=0)
+            self.assertTrue(client.is_connected())
+
+            client.emit(
+                "send_message",
+                {"chat_room_id": 3, "content": "blocked"}
+            )
+
+        self.assertFalse(client.is_connected())
+        self.assertEqual(get_connection.call_count, 2)
+        self.assertFalse(any(
+            "INSERT INTO chat_messages" in sql
+            for connection in (current_connection, expired_connection)
+            for sql, _ in connection.fake_cursor.executed
+        ))
 
 
 if __name__ == "__main__":

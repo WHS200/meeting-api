@@ -127,15 +127,53 @@ def _check_membership(chat_room_id, user_id):
         connection.close()
 
 
+def _socket_session_user():
+    user_id = session.get("user_id")
+    session_version = session.get("session_version")
+
+    if user_id is None or session_version is None:
+        return None
+
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT session_version, status
+            FROM users
+            WHERE user_id = %s
+            """,
+            (user_id,)
+        )
+        user = cursor.fetchone()
+    except Exception:
+        return None
+    finally:
+        if "cursor" in locals():
+            cursor.close()
+        if "connection" in locals():
+            connection.close()
+
+    if (
+        user is None
+        or user.get("status") == "DELETED"
+        or user.get("session_version") != session_version
+        or not socket_user_active(user_id)
+    ):
+        return None
+
+    return user_id
+
+
 def register_socket_events(socketio):
     global _socketio
     _socketio = socketio
 
     @socketio.on("connect")
     def handle_connect():
-        user_id = session.get("user_id")
+        user_id = _socket_session_user()
 
-        if user_id is None or not socket_user_active(user_id):
+        if user_id is None:
             return False
 
         _track_user_socket(user_id, request.sid)
@@ -144,9 +182,9 @@ def register_socket_events(socketio):
 
     @socketio.on("join_room")
     def handle_join_room(data):
-        user_id = session.get("user_id")
+        user_id = _socket_session_user()
 
-        if user_id is None or not socket_user_active(user_id):
+        if user_id is None:
             emit("error", {"message": "Login first."})
             disconnect_client()
             return
@@ -172,9 +210,9 @@ def register_socket_events(socketio):
 
     @socketio.on("leave_room")
     def handle_leave_room(data):
-        user_id = session.get("user_id")
+        user_id = _socket_session_user()
 
-        if user_id is None or not socket_user_active(user_id):
+        if user_id is None:
             emit("error", {"message": "Login first."})
             disconnect_client()
             return
@@ -200,9 +238,9 @@ def register_socket_events(socketio):
 
     @socketio.on("send_message")
     def handle_send_message(data):
-        user_id = session.get("user_id")
+        user_id = _socket_session_user()
 
-        if user_id is None or not socket_user_active(user_id):
+        if user_id is None:
             emit("error", {"message": "Login first."})
             disconnect_client()
             return

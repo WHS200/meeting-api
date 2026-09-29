@@ -460,6 +460,46 @@ class MeetingsApiTest(unittest.TestCase):
             )
         )
 
+    def test_update_meeting_rejects_meeting_expired_during_update(self):
+        self._login()
+
+        cursor = MeetingUpdateCursor()
+        connection = FakeConnection(cursor)
+
+        def expire_meeting(cursor_arg, editor):
+            editor["status"] = "COMPLETED"
+
+        with patch(
+            "app.meetings_gyudong.meetings.get_db_connection",
+            return_value=connection,
+        ), patch(
+            "app.meetings_gyudong.meetings.expire_meeting_if_needed",
+            side_effect=expire_meeting,
+        ) as expire, patch(
+            "app.meetings_gyudong.meetings.notify_meeting_changes"
+        ), patch(
+            "app.meetings_gyudong.meetings.promote_waiters"
+        ):
+            response = self.client.put(
+                "/api/meetings/41",
+                json=self._valid_meeting_payload(),
+            )
+
+        self.assertEqual(response.status_code, 409)
+        expire.assert_called_once_with(cursor, unittest.mock.ANY)
+        self.assertTrue(connection.committed)
+        self.assertFalse(any(
+            "UPDATE meetings\n            SET sport_id" in sql
+            for sql, _ in cursor.executed
+        ))
+
+        editor_sql = next(
+            sql
+            for sql, _ in cursor.executed
+            if "SELECT m.meeting_id, m.host_id" in sql
+        )
+        self.assertIn("FOR UPDATE", editor_sql)
+
     def test_list_meetings(self):
         cursor = FakeCursor(
             many=[{
