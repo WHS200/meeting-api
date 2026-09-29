@@ -1,6 +1,6 @@
 import os
 from uuid import uuid4
-from PIL import Image, UnidentifiedImageError
+#from PIL import Image, UnidentifiedImageError
 # Image: 이미지를 실제로 열기 위한 클래스
 # UnidentifiedImageError: Pilow가 파일을 보고 이미지로 인식할 수 없다고 판단할 때 발생하는 예외
 
@@ -68,33 +68,33 @@ def upload_profile_image():
             "message": "Profile image must be 5MB or smaller."
         }, 413
 
-    # 이미지 내용 검사
-    ALLOWED_IMAGE_FORMATS = {
-        "JPEG",
-        "PNG",
-        "WEBP"
-    }
+    # # 이미지 내용 검사
+    # ALLOWED_IMAGE_FORMATS = {
+    #     "JPEG",
+    #     "PNG",
+    #     "WEBP"
+    # }
 
-    try:
-        with Image.open(file.stream) as image:
-            if image.format not in ALLOWED_IMAGE_FORMATS:
-                return {"message": "Unsupportd image format."}, 400
+    # try:
+    #     with Image.open(file.stream) as image:
+    #         if image.format not in ALLOWED_IMAGE_FORMATS:
+    #             return {"message": "Unsupportd image format."}, 400
             
-            image.verify()
-            # verify(): 파일 내부의 이미지 구조가 정상적인지 검사
+    #         image.verify()
+    #         # verify(): 파일 내부의 이미지 구조가 정상적인지 검사
 
-        file.stream.seek(0) # 스트림을 처음으로 돌려놓음
+    #     file.stream.seek(0) # 스트림을 처음으로 돌려놓음
 
-        # 실제로 이미지를 사용할 수 있는지까지 확인
-        with Image.open(file.stream) as image:
-            image.load()
+    #     # 실제로 이미지를 사용할 수 있는지까지 확인
+    #     with Image.open(file.stream) as image:
+    #         image.load()
 
-    except (UnidentifiedImageError, OSError):
-        file.stream.seek(0)
-        return {"message" : "Invalid image file."}, 400
+    # except (UnidentifiedImageError, OSError):
+    #     file.stream.seek(0)
+    #     return {"message" : "Invalid image file."}, 400
 
-    finally:
-        file.stream.seek(0)
+    # finally:
+    #     file.stream.seek(0)
 
     s3 = get_s3_client()
     bucket_name = get_s3_bucket_name()
